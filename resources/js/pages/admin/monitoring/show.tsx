@@ -11,6 +11,7 @@ type Item = {
     unit: string | null;
     received_qty: number | null;
     damaged_qty: number;
+    qty_remaining: number;
     quality_status: string;
     quantity_status: string;
     photo_count: number;
@@ -169,6 +170,12 @@ export default function AdminMonitoringShow({
                                 </p>
                             ) : null}
 
+                            {round.completion_result === 'PARTIAL' ? (
+                                <p className="mt-4 text-sm font-semibold text-red-700">
+                                    Round ini parsial.
+                                </p>
+                            ) : null}
+
                             <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
                                 <table className="w-full text-left text-sm">
                                     <thead className="bg-slate-100 text-slate-700">
@@ -178,7 +185,15 @@ export default function AdminMonitoringShow({
                                             <th className="px-4 py-3">
                                                 No. Pesanan
                                             </th>
-                                            <th className="px-4 py-3">Qty</th>
+                                            <th className="px-4 py-3">
+                                                Qty Pesanan
+                                            </th>
+                                            {round.completion_result ===
+                                                'PARTIAL' && (
+                                                <th className="px-4 py-3">
+                                                    Qty Sisa
+                                                </th>
+                                            )}
                                             <th className="px-4 py-3">
                                                 Diterima
                                             </th>
@@ -207,6 +222,13 @@ export default function AdminMonitoringShow({
                                                 <td className="px-4 py-3">
                                                     {item.qty} {item.unit ?? ''}
                                                 </td>
+                                                {round.completion_result ===
+                                                    'PARTIAL' && (
+                                                    <td className="px-4 py-3">
+                                                        {item.qty_remaining}{' '}
+                                                        {item.unit ?? ''}
+                                                    </td>
+                                                )}
                                                 <td className="px-4 py-3">
                                                     {item.received_qty ?? '-'}
                                                 </td>

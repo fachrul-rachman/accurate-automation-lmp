@@ -11,6 +11,10 @@ type LocationOption = {
 };
 
 type Props = {
+    user_summary: {
+        name: string;
+        locations: string;
+    };
     locations: LocationOption[];
     active_rounds: ActiveRound[];
     active_round_count: number;
@@ -34,6 +38,7 @@ type ActiveRound = {
 };
 
 export default function WarehouseDashboard({
+    user_summary,
     locations,
     active_rounds,
     active_round_count,
@@ -64,6 +69,7 @@ export default function WarehouseDashboard({
                 }
                 title={activeView === 'rounds' ? 'Round PB' : 'Cari PB'}
                 roundCount={active_round_count}
+                userSummary={user_summary}
             >
                 <div className="mt-6">
                     {activeView === 'pb-search' && (

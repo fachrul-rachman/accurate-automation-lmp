@@ -220,6 +220,8 @@ it('shows partial reasons before User signs a round', function () {
             ->where('round.partial_reasons.0', 'Ada item yang belum datang.')
             ->where('round.partial_reasons.1', 'Ada quantity item yang belum lengkap.')
             ->where('round.partial_reasons.2', 'Ada item rusak.')
+            ->where('round.items.0.qty_remaining', 25)
+            ->where('round.items.1.qty_remaining', 2)
         );
 });
 

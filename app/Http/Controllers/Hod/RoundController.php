@@ -9,6 +9,7 @@ use App\Models\GoodsReceiptRound;
 use App\Models\User;
 use App\Services\GoodsReceiptRoundService;
 use App\Support\DateFormatter;
+use App\Support\RoundItemQuantity;
 use App\Support\RoundPartialReason;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,7 @@ final class RoundController extends Controller
         $this->authorizeHodAccess($request, $round);
 
         $round->load(['inspection.location', 'items.photos', 'attachments']);
+        $remainingByItem = RoundItemQuantity::remainingByRoundItem($round);
 
         return Inertia::render('hod/rounds/show', [
             'round' => [
@@ -54,6 +56,7 @@ final class RoundController extends Controller
                     'quantity_status' => $item->quantity_status->label(),
                     'received_qty' => $item->received_qty === null ? null : (float) $item->received_qty,
                     'damaged_qty' => (float) $item->damaged_qty,
+                    'qty_remaining' => $remainingByItem[$item->id] ?? 0.0,
                     'photo_count' => $item->photos->count(),
                     'photos' => $item->photos->map(fn ($photo): array => [
                         'id' => $photo->id,

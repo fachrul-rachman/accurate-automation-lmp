@@ -17,7 +17,7 @@ const navItems: NavItem[] = [
     { key: 'monitoring', href: '/admin/monitoring', label: 'Monitoring', icon: ClipboardList },
 ];
 
-export function AdminShell({ current, title, children }: { current: string; title: string; children: ReactNode }) {
+export function AdminShell({ current, title, userSummary, children }: { current: string; title: string; userSummary?: { name: string; locations: string }; children: ReactNode }) {
     const [desktopOpen, setDesktopOpen] = useState(true);
     const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -65,6 +65,11 @@ export function AdminShell({ current, title, children }: { current: string; titl
                 <section className="mx-auto w-full max-w-6xl pt-12 lg:pt-0">
                     <p className="text-sm font-medium text-teal-700">Admin</p>
                     <h1 className="mt-2 text-2xl font-semibold">{title}</h1>
+                    {userSummary && (
+                        <p className="mt-1 text-sm text-slate-500">
+                            {userSummary.name} - {userSummary.locations}
+                        </p>
+                    )}
                     {children}
                 </section>
             </main>

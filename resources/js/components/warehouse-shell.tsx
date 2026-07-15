@@ -23,12 +23,14 @@ export function WarehouseShell({
     onViewChange,
     title,
     roundCount,
+    userSummary,
     children,
 }: {
     activeView: string;
     onViewChange: (view: string) => void;
     title: string;
     roundCount: number;
+    userSummary: { name: string; locations: string };
     children: ReactNode;
 }) {
     const [desktopOpen, setDesktopOpen] = useState(true);
@@ -121,6 +123,9 @@ export function WarehouseShell({
                         Warehouse
                     </p>
                     <h1 className="mt-2 text-2xl font-semibold">{title}</h1>
+                    <p className="mt-1 text-sm text-slate-500">
+                        {userSummary.name} - {userSummary.locations}
+                    </p>
                     {children}
                 </section>
             </main>

@@ -63,10 +63,14 @@ final class GoodsReceiptRoundService
                 $accurateItem = $this->findAccurateItem($detail['items'], (string) $itemInput['accurate_detail_item_id']);
                 $roundItem = $this->createRoundItem($round, $accurateItem, $itemInput, $index + 1);
 
-                $this->storeItemPhoto($roundItem, $itemInput['item_photo'], RoundItemPhotoType::Item);
+                foreach ($this->uploadedFiles($itemInput, 'item_photo', 'item_photos') as $file) {
+                    $this->storeItemPhoto($roundItem, $file, RoundItemPhotoType::Item);
+                }
 
                 if (($itemInput['quality_status'] ?? null) === QualityStatus::Damaged->value) {
-                    $this->storeItemPhoto($roundItem, $itemInput['damage_photo'], RoundItemPhotoType::Damage);
+                    foreach ($this->uploadedFiles($itemInput, 'damage_photo', 'damage_photos') as $file) {
+                        $this->storeItemPhoto($roundItem, $file, RoundItemPhotoType::Damage);
+                    }
                 }
             }
 
@@ -388,6 +392,29 @@ final class GoodsReceiptRoundService
             'photo_type' => $type,
             ...$metadata,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $itemInput
+     * @return array<int, UploadedFile>
+     */
+    private function uploadedFiles(array $itemInput, string $singularField, string $arrayField): array
+    {
+        $files = [];
+
+        if (($itemInput[$singularField] ?? null) instanceof UploadedFile) {
+            $files[] = $itemInput[$singularField];
+        }
+
+        if (is_array($itemInput[$arrayField] ?? null)) {
+            foreach ($itemInput[$arrayField] as $file) {
+                if ($file instanceof UploadedFile) {
+                    $files[] = $file;
+                }
+            }
+        }
+
+        return $files;
     }
 
     private function roundDirectory(GoodsReceiptRound $round): string

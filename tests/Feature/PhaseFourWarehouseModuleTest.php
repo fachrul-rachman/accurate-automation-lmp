@@ -3,6 +3,7 @@
 use App\Enums\RoundStatus;
 use App\Models\GoodsReceiptInspection;
 use App\Models\GoodsReceiptRound;
+use App\Models\GoodsReceiptRoundItem;
 use App\Models\Location;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -182,6 +183,38 @@ it('creates inspection and draft round when warehouse saves the first checklist'
         ->and($round->items[0]->item_name)->toBe('Travo BHL250L')
         ->and((float) $round->items[0]->received_qty)->toBe(5.0)
         ->and($round->attachments)->toHaveCount(2);
+});
+
+it('stores multiple item and damage photos for one checked item', function () {
+    Storage::fake('public');
+    $location = phaseFourLocation();
+    $warehouse = phaseFourWarehouse($location);
+    $hod = phaseFourHod($location);
+    fakePhaseFourAccurate();
+
+    $payload = phaseFourPayload($hod);
+    $payload['location_id'] = $location->id;
+    $payload['items'][0]['quality_status'] = 'DAMAGED';
+    $payload['items'][0]['quantity_status'] = 'NOT_MATCH';
+    $payload['items'][0]['received_qty'] = 5;
+    $payload['items'][0]['damaged_qty'] = 2;
+    unset($payload['items'][0]['item_photo']);
+    $payload['items'][0]['item_photos'] = [
+        UploadedFile::fake()->image('item-1.jpg'),
+        UploadedFile::fake()->image('item-2.jpg'),
+    ];
+    $payload['items'][0]['damage_photos'] = [
+        UploadedFile::fake()->image('damage-1.jpg'),
+        UploadedFile::fake()->image('damage-2.jpg'),
+    ];
+
+    $this->actingAs($warehouse)
+        ->post(route('warehouse.rounds.store'), $payload)
+        ->assertRedirect();
+
+    $round = GoodsReceiptRound::query()->with('items.photos')->firstOrFail();
+
+    expect($round->items[0]->photos)->toHaveCount(4);
 });
 
 it('creates a draft round only for checked arrived items', function () {
@@ -390,6 +423,79 @@ it('shows signed partial rounds as partial and lets warehouse continue with a ne
             'location_id' => $location->id,
             'pb_number' => 'PB-PARTIAL-CONTINUE',
         ]));
+});
+
+it('shows remaining quantity when warehouse continues a partial PB', function () {
+    $location = phaseFourLocation();
+    $warehouse = phaseFourWarehouse($location);
+    $hod = phaseFourHod($location);
+    fakePhaseFourAccurateWithTwoItems('PB-PARTIAL-REMAINING');
+
+    $inspection = GoodsReceiptInspection::query()->create([
+        'location_id' => $location->id,
+        'created_by' => $warehouse->id,
+        'accurate_receive_item_id' => '16202',
+        'pb_number' => 'PB-PARTIAL-REMAINING',
+        'po_number' => 'PO-004',
+        'supplier_name' => 'PT Partial',
+        'pb_date' => now()->toDateString(),
+        'accurate_raw_json' => ['number' => 'PB-PARTIAL-REMAINING'],
+        'pb_status' => 'OPEN_PARTIAL',
+        'pdf_status' => 'NOT_READY',
+    ]);
+
+    $round = GoodsReceiptRound::query()->create([
+        'inspection_id' => $inspection->id,
+        'round_number' => 1,
+        'created_by' => $warehouse->id,
+        'selected_hod_id' => $hod->id,
+        'round_status' => RoundStatus::Signed,
+        'completion_result' => 'PARTIAL',
+        'specification_matches_po' => true,
+        'submitted_at' => now(),
+        'hod_signed_by' => $hod->id,
+        'hod_signed_at' => now(),
+        'head_warehouse_signed_at' => now(),
+    ]);
+
+    GoodsReceiptRoundItem::query()->create([
+        'round_id' => $round->id,
+        'line_number' => 1,
+        'accurate_detail_item_id' => '9001',
+        'item_code' => 'ITM-1',
+        'item_name' => 'Barang Datang',
+        'qty' => 20,
+        'unit' => 'PCS',
+        'quality_status' => 'GOOD',
+        'quantity_status' => 'PARTIAL',
+        'received_qty' => 15,
+        'damaged_qty' => 0,
+    ]);
+
+    GoodsReceiptRoundItem::query()->create([
+        'round_id' => $round->id,
+        'line_number' => 2,
+        'accurate_detail_item_id' => '9002',
+        'item_code' => 'ITM-2',
+        'item_name' => 'Barang Rusak',
+        'qty' => 10,
+        'unit' => 'PCS',
+        'quality_status' => 'DAMAGED',
+        'quantity_status' => 'MATCH',
+        'received_qty' => 10,
+        'damaged_qty' => 2,
+    ]);
+
+    $this->actingAs($warehouse)
+        ->get(route('warehouse.pb-search.result', [
+            'location_id' => $location->id,
+            'pb_number' => 'PB-PARTIAL-REMAINING',
+        ]))
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('warehouse/pb-search/result')
+            ->where('result.items.0.qty_remaining', 5)
+            ->where('result.items.1.qty_remaining', 2)
+        );
 });
 
 it('shows one warehouse history row per PB and hides continue action when PB is complete', function () {

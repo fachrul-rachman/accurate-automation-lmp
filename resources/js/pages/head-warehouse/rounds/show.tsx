@@ -28,6 +28,7 @@ type RoundItem = {
     quantity_status: string;
     received_qty: number | null;
     damaged_qty: number;
+    qty_remaining: number;
     photo_count: number;
     photos: RoundPhoto[];
 };
@@ -62,6 +63,9 @@ type Props = {
 export default function HeadWarehouseRoundShow({ round }: Props) {
     const online = useOnlineStatus();
     const { post, processing, errors } = useForm<{ round?: string }>({});
+    const showRemainingQty =
+        round.completion_result === 'PARTIAL' ||
+        round.partial_reasons.length > 0;
 
     function sign(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -190,7 +194,10 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
                                     <th className="px-4 py-3">Kode</th>
                                     <th className="px-4 py-3">Item</th>
                                     <th className="px-4 py-3">No. Pesanan</th>
-                                    <th className="px-4 py-3">Qty</th>
+                                    <th className="px-4 py-3">Qty Pesanan</th>
+                                    {showRemainingQty && (
+                                        <th className="px-4 py-3">Qty Sisa</th>
+                                    )}
                                     <th className="px-4 py-3">Received</th>
                                     <th className="px-4 py-3">Rusak</th>
                                     <th className="px-4 py-3">Kualitas</th>
@@ -215,6 +222,12 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
                                         <td className="px-4 py-3">
                                             {item.qty} {item.unit ?? ''}
                                         </td>
+                                        {showRemainingQty && (
+                                            <td className="px-4 py-3">
+                                                {item.qty_remaining}{' '}
+                                                {item.unit ?? ''}
+                                            </td>
+                                        )}
                                         <td className="px-4 py-3">
                                             {item.received_qty ?? '-'}
                                         </td>

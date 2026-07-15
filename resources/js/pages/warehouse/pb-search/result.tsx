@@ -21,6 +21,7 @@ type SearchItem = {
     item_name: string | null;
     po_number: string | null;
     quantity: number | null;
+    qty_remaining: number | null;
     unit: string | null;
 };
 
@@ -62,8 +63,8 @@ export default function WarehousePbSearchResult({
             quantity_status: 'MATCH',
             received_qty: '',
             damaged_qty: '0',
-            item_photo: null as File | null,
-            damage_photo: null as File | null,
+            item_photos: [] as File[],
+            damage_photos: [] as File[],
         })),
     });
 
@@ -85,7 +86,11 @@ export default function WarehousePbSearchResult({
     const errorMessages = showValidationErrors
         ? Object.values(errors).filter(Boolean)
         : [];
+    const formErrors = errors as Record<string, string | undefined>;
     const checkedItems = data.items.filter((item) => item.is_checked);
+    const showRemainingQty = result.items.some(
+        (item) => item.qty_remaining !== null,
+    );
     const itemsComplete = data.items.every((item) => {
         if (!item.is_checked) {
             return true;
@@ -95,11 +100,11 @@ export default function WarehousePbSearchResult({
             item.quantity_status === 'MATCH' || item.received_qty !== '';
         const damageOk =
             item.quality_status !== 'DAMAGED' ||
-            (Number(item.damaged_qty) > 0 && item.damage_photo !== null);
+            (Number(item.damaged_qty) > 0 && item.damage_photos.length > 0);
 
         return (
             item.accurate_detail_item_id !== '' &&
-            item.item_photo !== null &&
+            item.item_photos.length > 0 &&
             receivedOk &&
             damageOk
         );
@@ -318,8 +323,13 @@ export default function WarehousePbSearchResult({
                                                     No. Pesanan
                                                 </th>
                                                 <th className="px-4 py-3">
-                                                    Qty
+                                                    Qty Pesanan
                                                 </th>
+                                                {showRemainingQty && (
+                                                    <th className="px-4 py-3">
+                                                        Qty Sisa
+                                                    </th>
+                                                )}
                                                 <th className="px-4 py-3">
                                                     Unit
                                                 </th>
@@ -398,6 +408,12 @@ export default function WarehousePbSearchResult({
                                                     <td className="px-4 py-3">
                                                         {item.quantity ?? '-'}
                                                     </td>
+                                                    {showRemainingQty && (
+                                                        <td className="px-4 py-3">
+                                                            {item.qty_remaining ??
+                                                                '-'}
+                                                        </td>
+                                                    )}
                                                     <td className="px-4 py-3">
                                                         {item.unit ?? '-'}
                                                     </td>
@@ -576,6 +592,7 @@ export default function WarehousePbSearchResult({
                                                             <input
                                                                 type="file"
                                                                 accept="image/*"
+                                                                multiple
                                                                 onChange={(
                                                                     event,
                                                                 ) => {
@@ -589,11 +606,13 @@ export default function WarehousePbSearchResult({
                                                                         ...items[
                                                                             index
                                                                         ],
-                                                                        item_photo:
-                                                                            event
-                                                                                .target
-                                                                                .files?.[0] ??
-                                                                            null,
+                                                                        item_photos:
+                                                                            Array.from(
+                                                                                event
+                                                                                    .target
+                                                                                    .files ??
+                                                                                    [],
+                                                                            ),
                                                                     };
                                                                     setData(
                                                                         'items',
@@ -611,13 +630,25 @@ export default function WarehousePbSearchResult({
                                                             />
                                                         </label>
                                                         {showValidationErrors &&
-                                                            errors[
+                                                            (formErrors[
                                                                 `items.${index}.item_photo`
-                                                            ] && (
+                                                            ] ||
+                                                                formErrors[
+                                                                    `items.${index}.item_photos`
+                                                                ] ||
+                                                                formErrors[
+                                                                    `items.${index}.item_photos.0`
+                                                                ]) && (
                                                                 <span className="mt-1 block text-xs text-red-600">
                                                                     {
-                                                                        errors[
+                                                                        formErrors[
                                                                             `items.${index}.item_photo`
+                                                                        ] ??
+                                                                        formErrors[
+                                                                            `items.${index}.item_photos`
+                                                                        ] ??
+                                                                        formErrors[
+                                                                            `items.${index}.item_photos.0`
                                                                         ]
                                                                     }
                                                                 </span>
@@ -632,6 +663,7 @@ export default function WarehousePbSearchResult({
                                                                 <input
                                                                     type="file"
                                                                     accept="image/*"
+                                                                    multiple
                                                                     onChange={(
                                                                         event,
                                                                     ) => {
@@ -645,11 +677,13 @@ export default function WarehousePbSearchResult({
                                                                             ...items[
                                                                                 index
                                                                             ],
-                                                                            damage_photo:
-                                                                                event
-                                                                                    .target
-                                                                                    .files?.[0] ??
-                                                                                null,
+                                                                            damage_photos:
+                                                                                Array.from(
+                                                                                    event
+                                                                                        .target
+                                                                                        .files ??
+                                                                                        [],
+                                                                                ),
                                                                         };
                                                                         setData(
                                                                             'items',
@@ -661,13 +695,25 @@ export default function WarehousePbSearchResult({
                                                             </label>
                                                         )}
                                                         {showValidationErrors &&
-                                                            errors[
+                                                            (formErrors[
                                                                 `items.${index}.damage_photo`
-                                                            ] && (
+                                                            ] ||
+                                                                formErrors[
+                                                                    `items.${index}.damage_photos`
+                                                                ] ||
+                                                                formErrors[
+                                                                    `items.${index}.damage_photos.0`
+                                                                ]) && (
                                                                 <span className="mt-1 block text-xs text-red-600">
                                                                     {
-                                                                        errors[
+                                                                        formErrors[
                                                                             `items.${index}.damage_photo`
+                                                                        ] ??
+                                                                        formErrors[
+                                                                            `items.${index}.damage_photos`
+                                                                        ] ??
+                                                                        formErrors[
+                                                                            `items.${index}.damage_photos.0`
                                                                         ]
                                                                     }
                                                                 </span>

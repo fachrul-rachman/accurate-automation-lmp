@@ -6,6 +6,7 @@ use App\Enums\RoundStatus;
 use App\Enums\UserRole;
 use App\Models\GoodsReceiptRound;
 use App\Support\DateFormatter;
+use App\Support\UserDisplay;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -78,6 +79,7 @@ final class DashboardController extends Controller
             ->all();
 
         return Inertia::render('dashboards/warehouse', [
+            'user_summary' => UserDisplay::summary($user, $locationsCollection),
             'locations' => $locations,
             'active_rounds' => $activeRounds,
             'active_round_count' => count($activeRounds),
@@ -155,6 +157,7 @@ final class DashboardController extends Controller
             ->all();
 
         return Inertia::render('dashboards/hod', [
+            'user_summary' => UserDisplay::summary($user),
             'pending_rounds' => $pendingRounds,
             'pending_round_count' => count($pendingRounds),
             'history_rounds' => $historyRounds,
@@ -204,6 +207,7 @@ final class DashboardController extends Controller
             ->all();
 
         return Inertia::render('dashboards/head-warehouse', [
+            'user_summary' => UserDisplay::summary($user),
             'pending_rounds' => $pendingRounds,
             'pending_round_count' => count($pendingRounds),
             'history_rounds' => $historyRounds,
@@ -216,6 +220,8 @@ final class DashboardController extends Controller
         $user = request()->user();
         abort_unless($user !== null && $user->role === UserRole::Admin, 403);
 
-        return Inertia::render('dashboards/admin');
+        return Inertia::render('dashboards/admin', [
+            'user_summary' => UserDisplay::summary($user),
+        ]);
     }
 }

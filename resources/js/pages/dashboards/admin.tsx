@@ -1,11 +1,18 @@
 import { Head } from '@inertiajs/react';
 import { AdminShell } from '@/components/admin-shell';
 
-export default function AdminDashboard() {
+type Props = {
+    user_summary: {
+        name: string;
+        locations: string;
+    };
+};
+
+export default function AdminDashboard({ user_summary }: Props) {
     return (
         <>
             <Head title="Dashboard Admin" />
-            <AdminShell current="dashboard" title="Dashboard">
+            <AdminShell current="dashboard" title="Dashboard" userSummary={user_summary}>
                 <div className="mt-5 grid gap-4 md:grid-cols-3">
                     <section className="rounded-lg border border-slate-200 bg-white p-5">
                         <h2 className="font-semibold">Users</h2>

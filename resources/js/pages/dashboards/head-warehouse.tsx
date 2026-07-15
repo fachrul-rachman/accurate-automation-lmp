@@ -29,6 +29,10 @@ type HistoryRound = PendingRound & {
 };
 
 type Props = {
+    user_summary: {
+        name: string;
+        locations: string;
+    };
     pending_rounds: PendingRound[];
     pending_round_count: number;
     history_rounds: HistoryRound[];
@@ -36,6 +40,7 @@ type Props = {
 };
 
 export default function HeadWarehouseDashboard({
+    user_summary,
     pending_rounds,
     pending_round_count,
     history_rounds,
@@ -60,6 +65,7 @@ export default function HeadWarehouseDashboard({
                 pendingCount={pending_round_count}
                 historyCount={history_round_count}
                 title={title}
+                userSummary={user_summary}
             >
                 {activeView === 'pending' && (
                     <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
@@ -214,6 +220,7 @@ function HeadWarehouseShell({
     pendingCount,
     historyCount,
     title,
+    userSummary,
     children,
 }: {
     activeView: 'pending' | 'history';
@@ -221,6 +228,7 @@ function HeadWarehouseShell({
     pendingCount: number;
     historyCount: number;
     title: string;
+    userSummary: { name: string; locations: string };
     children: ReactNode;
 }) {
     const [desktopOpen, setDesktopOpen] = useState(true);
@@ -314,6 +322,9 @@ function HeadWarehouseShell({
                         Kepala Gudang
                     </p>
                     <h1 className="mt-2 text-2xl font-semibold">{title}</h1>
+                    <p className="mt-1 text-sm text-slate-500">
+                        {userSummary.name} - {userSummary.locations}
+                    </p>
                     {children}
                 </section>
             </main>

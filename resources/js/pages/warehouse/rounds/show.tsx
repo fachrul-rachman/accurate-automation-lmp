@@ -13,6 +13,7 @@ type RoundItem = {
     quantity_status: string;
     received_qty: number | null;
     damaged_qty: number;
+    qty_remaining: number;
     photo_count: number;
 };
 
@@ -44,6 +45,9 @@ type Props = {
 
 export default function WarehouseRoundShow({ round }: Props) {
     const { post, processing } = useForm();
+    const showRemainingQty =
+        round.completion_result === 'PARTIAL' ||
+        round.partial_reasons.length > 0;
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -108,7 +112,10 @@ export default function WarehouseRoundShow({ round }: Props) {
                                     <th className="px-4 py-3">Kode</th>
                                     <th className="px-4 py-3">Item</th>
                                     <th className="px-4 py-3">No. Pesanan</th>
-                                    <th className="px-4 py-3">Qty</th>
+                                    <th className="px-4 py-3">Qty Pesanan</th>
+                                    {showRemainingQty && (
+                                        <th className="px-4 py-3">Qty Sisa</th>
+                                    )}
                                     <th className="px-4 py-3">Received</th>
                                     <th className="px-4 py-3">Rusak</th>
                                     <th className="px-4 py-3">Kualitas</th>
@@ -122,6 +129,11 @@ export default function WarehouseRoundShow({ round }: Props) {
                                         <td className="px-4 py-3">{item.item_name}</td>
                                         <td className="px-4 py-3">{item.po_number ?? '-'}</td>
                                         <td className="px-4 py-3">{item.qty} {item.unit ?? ''}</td>
+                                        {showRemainingQty && (
+                                            <td className="px-4 py-3">
+                                                {item.qty_remaining} {item.unit ?? ''}
+                                            </td>
+                                        )}
                                         <td className="px-4 py-3">{item.received_qty ?? '-'}</td>
                                         <td className="px-4 py-3">{item.damaged_qty}</td>
                                         <td className="px-4 py-3">{item.quality_status}</td>

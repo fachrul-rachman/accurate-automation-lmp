@@ -7,6 +7,7 @@ use App\Enums\QuantityStatus;
 use App\Enums\UserRole;
 use App\Models\Location;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -38,7 +39,11 @@ final class StoreRoundRequest extends FormRequest
             'items.*.received_qty' => ['nullable', 'numeric', 'min:0'],
             'items.*.damaged_qty' => ['nullable', 'numeric', 'min:0'],
             'items.*.item_photo' => ['nullable', 'image', 'max:5120'],
+            'items.*.item_photos' => ['nullable', 'array'],
+            'items.*.item_photos.*' => ['image', 'max:5120'],
             'items.*.damage_photo' => ['nullable', 'image', 'max:5120'],
+            'items.*.damage_photos' => ['nullable', 'array'],
+            'items.*.damage_photos.*' => ['image', 'max:5120'],
         ];
     }
 
@@ -56,7 +61,9 @@ final class StoreRoundRequest extends FormRequest
             'items.required' => 'Minimal satu item harus dicek.',
             'items.*.item_photo.required' => 'Foto item wajib diupload.',
             'items.*.item_photo.image' => 'Foto item harus berupa gambar.',
+            'items.*.item_photos.*.image' => 'Foto item harus berupa gambar.',
             'items.*.damage_photo.image' => 'Foto kerusakan harus berupa gambar.',
+            'items.*.damage_photos.*.image' => 'Foto kerusakan harus berupa gambar.',
             'items.*.received_qty.required' => 'Quantity diterima wajib diisi.',
             'items.*.received_qty.numeric' => 'Quantity diterima harus berupa angka.',
             'items.*.damaged_qty.numeric' => 'Quantity rusak harus berupa angka.',
@@ -115,7 +122,7 @@ final class StoreRoundRequest extends FormRequest
                         $validator->errors()->add("items.{$index}.quantity_status", 'Status quantity wajib dipilih.');
                     }
 
-                    if (! $this->hasFile("items.{$index}.item_photo")) {
+                    if (! $this->hasAnyFile($index, 'item_photo', 'item_photos')) {
                         $validator->errors()->add("items.{$index}.item_photo", 'Foto item wajib diupload.');
                     }
 
@@ -128,8 +135,8 @@ final class StoreRoundRequest extends FormRequest
                             $validator->errors()->add("items.{$index}.damaged_qty", 'Damaged quantity wajib diisi.');
                         }
 
-                        if (! $this->hasFile("items.{$index}.damage_photo")) {
-                            $validator->errors()->add("items.{$index}.damage_photo", 'Damage photo wajib diisi.');
+                        if (! $this->hasAnyFile($index, 'damage_photo', 'damage_photos')) {
+                            $validator->errors()->add("items.{$index}.damage_photo", 'Foto kerusakan wajib diupload.');
                         }
                     }
                 }
@@ -147,5 +154,22 @@ final class StoreRoundRequest extends FormRequest
             ->locations()
             ->where('locations.id', $this->integer('location_id'))
             ->firstOrFail();
+    }
+
+    private function hasAnyFile(int $index, string $singularField, string $arrayField): bool
+    {
+        $singular = $this->file("items.{$index}.{$singularField}");
+
+        if ($singular instanceof UploadedFile) {
+            return true;
+        }
+
+        $files = $this->file("items.{$index}.{$arrayField}");
+
+        if (! is_array($files)) {
+            return false;
+        }
+
+        return $files !== [];
     }
 }

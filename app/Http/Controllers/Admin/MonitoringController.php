@@ -9,6 +9,7 @@ use App\Models\GoodsReceiptInspection;
 use App\Models\GoodsReceiptRound;
 use App\Models\GoodsReceiptRoundItem;
 use App\Support\DateFormatter;
+use App\Support\RoundItemQuantity;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -134,6 +135,8 @@ final class MonitoringController extends Controller
      */
     private function roundPayload(GoodsReceiptRound $round): array
     {
+        $remainingByItem = RoundItemQuantity::remainingByRoundItem($round);
+
         return [
             'id' => $round->id,
             'round_number' => $round->round_number,
@@ -147,7 +150,7 @@ final class MonitoringController extends Controller
             'hod_signed_at' => DateFormatter::wib($round->hod_signed_at),
             'head_warehouse_signed_by' => $round->headWarehouseSigner?->name,
             'head_warehouse_signed_at' => DateFormatter::wib($round->head_warehouse_signed_at),
-            'items' => $round->items->map(fn (GoodsReceiptRoundItem $item): array => $this->itemPayload($item))->all(),
+            'items' => $round->items->map(fn (GoodsReceiptRoundItem $item): array => $this->itemPayload($item, $remainingByItem[$item->id] ?? 0.0))->all(),
             'attachment_count' => $round->attachments->count(),
         ];
     }
@@ -155,7 +158,7 @@ final class MonitoringController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function itemPayload(GoodsReceiptRoundItem $item): array
+    private function itemPayload(GoodsReceiptRoundItem $item, float $remainingQty): array
     {
         return [
             'id' => $item->id,
@@ -166,6 +169,7 @@ final class MonitoringController extends Controller
             'unit' => $item->unit,
             'received_qty' => $item->received_qty === null ? null : (float) $item->received_qty,
             'damaged_qty' => (float) $item->damaged_qty,
+            'qty_remaining' => $remainingQty,
             'quality_status' => $item->quality_status->label(),
             'quantity_status' => $item->quantity_status->label(),
             'photo_count' => $item->photos->count(),
