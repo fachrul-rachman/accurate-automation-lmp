@@ -19,26 +19,28 @@ Do not copy the whole reference into implementation comments. Use this file as t
 Required:
 
 ```env
-ACCOUNT_URL=https://account.accurate.id
-API_TOKEN=your_api_token
-SIGNATURE_SECRET=your_signature_secret
+ACCURATE_KARAWANG_API_TOKEN=your_karawang_api_token
+ACCURATE_KARAWANG_SIGNATURE_SECRET=your_karawang_signature_secret
+ACCURATE_TANGERANG_API_TOKEN=your_tangerang_api_token
+ACCURATE_TANGERANG_SIGNATURE_SECRET=your_tangerang_signature_secret
+ACCURATE_TIMEOUT=15
 ```
 
-Runtime-derived:
+Runtime location URL:
 
 ```env
-ACCURATE_HOST=from api-token.do response
-ACCURATE_URL={ACCURATE_HOST}/accurate
+Karawang=https://zeus.accurate.id
+Tangerang=https://iris.accurate.id
 ```
 
-Do not hardcode Accurate database host.
+URL Accurate disimpan di data location, bukan dari host discovery.
 
 ## Required Headers
 
 Every Accurate request requires:
 
 ```http
-Authorization: Bearer {API_TOKEN}
+Authorization: Bearer {LOCATION_API_TOKEN}
 X-Api-Timestamp: {timestamp}
 X-Api-Signature: {signature}
 ```
@@ -46,32 +48,29 @@ X-Api-Signature: {signature}
 Signature:
 
 ```text
-HMAC-SHA256(timestamp, SIGNATURE_SECRET)
+HMAC-SHA256(timestamp, LOCATION_SIGNATURE_SECRET)
 ```
 
 Output format: hex.
 
 ## Endpoint Flow
 
-### 1. Validate API Token and Discover Host
+### 1. Resolve Location Host and Credential
 
-Endpoint:
-
-```http
-GET https://account.accurate.id/api/api-token.do
-```
-
-Use response field:
+Use selected location:
 
 ```text
-d.database.host
+Karawang -> https://zeus.accurate.id -> ACCURATE_KARAWANG_*
+Tangerang -> https://iris.accurate.id -> ACCURATE_TANGERANG_*
 ```
 
 Then build:
 
 ```text
-ACCURATE_URL = d.database.host + "/accurate"
+ACCURATE_URL = location.accurate_host_url + "/accurate"
 ```
+
+Do not call account host discovery in MVP.
 
 ### 2. Search Receive Item by PB Number
 

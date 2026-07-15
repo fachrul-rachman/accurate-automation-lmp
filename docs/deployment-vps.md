@@ -61,18 +61,24 @@ Karena `SESSION_DRIVER=database`, migration wajib dijalankan.
 
 ### Accurate
 
-Token Accurate disimpan di env:
+Token Accurate disimpan di env per lokasi:
 
 ```env
-API_TOKEN=isi_token_accurate
-SIGNATURE_SECRET=isi_signature_secret_accurate
+ACCURATE_KARAWANG_API_TOKEN=isi_token_karawang
+ACCURATE_KARAWANG_SIGNATURE_SECRET=isi_signature_secret_karawang
+
+ACCURATE_TANGERANG_API_TOKEN=isi_token_tangerang
+ACCURATE_TANGERANG_SIGNATURE_SECRET=isi_signature_secret_tangerang
+
 ACCURATE_TIMEOUT=15
 ```
 
-URL Accurate tidak global di env. URL diisi per location dari halaman admin, contoh:
+URL Accurate tetap diisi per location dari halaman admin, contoh:
 
 - Karawang: `https://zeus.accurate.id`
 - Tangerang: `https://iris.accurate.id`
+
+Nama location dipakai sebagai key env. Jadi pastikan nama location tetap `Karawang` dan `Tangerang` untuk MVP ini.
 
 ### Cloudflare R2
 

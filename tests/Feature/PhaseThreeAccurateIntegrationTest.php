@@ -92,6 +92,38 @@ it('searches PB against the selected user location host without storing a snapsh
         && $request->hasHeader('X-Api-Signature'));
 });
 
+it('uses location specific Accurate credentials for each location', function () {
+    Config::set('services.accurate.locations.karawang.api_token', 'karawang-token');
+    Config::set('services.accurate.locations.karawang.signature_secret', 'karawang-secret');
+    Config::set('services.accurate.locations.tangerang.api_token', 'tangerang-token');
+    Config::set('services.accurate.locations.tangerang.signature_secret', 'tangerang-secret');
+    Config::set('services.accurate.timeout', 5);
+
+    $karawang = locationWithAccurateHost('Karawang', 'https://zeus.accurate.id');
+    $tangerang = locationWithAccurateHost('Tangerang', 'https://iris.accurate.id');
+    fakeLocationAccurateSuccess('https://zeus.accurate.id', 'PB-KRW');
+    fakeLocationAccurateSuccess('https://iris.accurate.id', 'PB-TGR');
+
+    app(AccurateReceiveItemService::class)->findReceiveItemDetail($karawang, 'PB-KRW');
+    app(AccurateReceiveItemService::class)->findReceiveItemDetail($tangerang, 'PB-TGR');
+
+    Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://zeus.accurate.id/')
+        && $request->hasHeader('Authorization', 'Bearer karawang-token'));
+    Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://iris.accurate.id/')
+        && $request->hasHeader('Authorization', 'Bearer tangerang-token'));
+});
+
+it('shows a clear error when a location specific Accurate credential is missing', function () {
+    Config::set('services.accurate.api_token', null);
+    Config::set('services.accurate.signature_secret', null);
+    Config::set('services.accurate.locations.karawang.api_token', null);
+    Config::set('services.accurate.locations.karawang.signature_secret', null);
+
+    $karawang = locationWithAccurateHost('Karawang', 'https://zeus.accurate.id');
+
+    app(AccurateReceiveItemService::class)->findReceiveItemDetail($karawang, 'PB-001');
+})->throws(RuntimeException::class, 'Konfigurasi Accurate untuk lokasi Karawang belum lengkap.');
+
 it('never calls the account host discovery endpoint during PB search', function () {
     configureAccurateCredential();
     $karawang = locationWithAccurateHost('Karawang', 'https://zeus.accurate.id');

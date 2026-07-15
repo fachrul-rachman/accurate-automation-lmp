@@ -6,6 +6,7 @@ use App\Models\Location;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
@@ -26,8 +27,9 @@ final class AccurateReceiveItemService
     {
         $host = $this->locationHost($location);
         $normalizedPbNumber = trim($pbNumber);
-        $receiveItem = $this->searchReceiveItem($host, $normalizedPbNumber);
-        $detail = $this->receiveItemDetail($host, (string) $receiveItem['id']);
+        $headers = $this->headers($location);
+        $receiveItem = $this->searchReceiveItem($host, $headers, $normalizedPbNumber);
+        $detail = $this->receiveItemDetail($host, $headers, (string) $receiveItem['id']);
         $items = $this->detailItems($detail);
 
         if ($items === []) {
@@ -50,10 +52,14 @@ final class AccurateReceiveItemService
     /**
      * @return array<string, mixed>
      */
-    private function searchReceiveItem(string $host, string $pbNumber): array
+    /**
+     * @param  array<string, string>  $headers
+     * @return array<string, mixed>
+     */
+    private function searchReceiveItem(string $host, array $headers, string $pbNumber): array
     {
         $response = Http::timeout($this->timeout())
-            ->withHeaders($this->headers())
+            ->withHeaders($headers)
             ->get($this->accurateUrl($host, '/api/receive-item/list.do'), [
                 'filter.number' => $pbNumber,
             ]);
@@ -82,10 +88,14 @@ final class AccurateReceiveItemService
     /**
      * @return array<string, mixed>
      */
-    private function receiveItemDetail(string $host, string $receiveItemId): array
+    /**
+     * @param  array<string, string>  $headers
+     * @return array<string, mixed>
+     */
+    private function receiveItemDetail(string $host, array $headers, string $receiveItemId): array
     {
         $response = Http::timeout($this->timeout())
-            ->withHeaders($this->headers())
+            ->withHeaders($headers)
             ->get($this->accurateUrl($host, '/api/receive-item/detail.do'), [
                 'id' => $receiveItemId,
             ]);
@@ -228,10 +238,9 @@ final class AccurateReceiveItemService
     /**
      * @return array<string, string>
      */
-    private function headers(): array
+    private function headers(Location $location): array
     {
-        $token = $this->requiredConfig('api_token');
-        $secret = $this->requiredConfig('signature_secret');
+        [$token, $secret] = $this->credentials($location);
         $timestamp = (string) time();
 
         return [
@@ -242,15 +251,27 @@ final class AccurateReceiveItemService
         ];
     }
 
-    private function requiredConfig(string $key): string
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function credentials(Location $location): array
     {
-        $value = config("services.accurate.{$key}");
+        $locationKey = Str::slug($location->name, '_');
+        $token = config("services.accurate.locations.{$locationKey}.api_token");
+        $secret = config("services.accurate.locations.{$locationKey}.signature_secret");
 
-        if (! is_string($value) || trim($value) === '') {
-            throw new RuntimeException('Konfigurasi Accurate belum lengkap.');
+        if (is_string($token) && trim($token) !== '' && is_string($secret) && trim($secret) !== '') {
+            return [$token, $secret];
         }
 
-        return $value;
+        $fallbackToken = config('services.accurate.api_token');
+        $fallbackSecret = config('services.accurate.signature_secret');
+
+        if (is_string($fallbackToken) && trim($fallbackToken) !== '' && is_string($fallbackSecret) && trim($fallbackSecret) !== '') {
+            return [$fallbackToken, $fallbackSecret];
+        }
+
+        throw new RuntimeException("Konfigurasi Accurate untuk lokasi {$location->name} belum lengkap.");
     }
 
     private function timeout(): int

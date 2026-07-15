@@ -39,6 +39,16 @@ return [
         'api_token' => env('API_TOKEN'),
         'signature_secret' => env('SIGNATURE_SECRET'),
         'timeout' => env('ACCURATE_TIMEOUT', 15),
+        'locations' => [
+            'karawang' => [
+                'api_token' => env('ACCURATE_KARAWANG_API_TOKEN'),
+                'signature_secret' => env('ACCURATE_KARAWANG_SIGNATURE_SECRET'),
+            ],
+            'tangerang' => [
+                'api_token' => env('ACCURATE_TANGERANG_API_TOKEN'),
+                'signature_secret' => env('ACCURATE_TANGERANG_SIGNATURE_SECRET'),
+            ],
+        ],
     ],
 
 ];
