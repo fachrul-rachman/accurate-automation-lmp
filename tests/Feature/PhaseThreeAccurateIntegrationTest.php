@@ -25,6 +25,7 @@ function warehouseWithLocations(Location ...$locations): User
 
 function configureAccurateCredential(): void
 {
+    Config::set('services.accurate.locations', []);
     Config::set('services.accurate.api_token', 'test-token');
     Config::set('services.accurate.signature_secret', 'test-secret');
     Config::set('services.accurate.timeout', 5);

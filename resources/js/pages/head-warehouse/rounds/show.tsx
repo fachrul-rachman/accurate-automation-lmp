@@ -84,7 +84,9 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
 
     return (
         <>
-            <Head title={`Head Warehouse - Penerimaan Barang ${round.inspection.pb_number}`} />
+            <Head
+                title={`Head Warehouse - Penerimaan Barang ${round.inspection.pb_number}`}
+            />
             <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-950">
                 <section className="mx-auto w-full max-w-5xl">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -94,8 +96,8 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
                                 {round.inspection.location_name ?? '-'}
                             </p>
                             <h1 className="mt-2 text-2xl font-semibold">
-                                Penerimaan Barang {round.inspection.pb_number} / Round{' '}
-                                {round.round_number}
+                                Penerimaan Barang {round.inspection.pb_number} /
+                                Round {round.round_number}
                             </h1>
                             <StatusChip
                                 status={round.round_status}
@@ -156,7 +158,10 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
                                         : 'Tidak'
                                 }
                             />
-                            <Info label="Dikirim" value={round.submitted_at ?? '-'} />
+                            <Info
+                                label="Dikirim"
+                                value={round.submitted_at ?? '-'}
+                            />
                             {round.completion_result && (
                                 <Info
                                     label="Hasil"
@@ -272,44 +277,53 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
 
                     {round.can_sign ? (
                         <div className="mt-5 grid gap-4 md:grid-cols-2">
-                        <form onSubmit={sign}>
-                            <button
-                                type="submit"
-                                disabled={processing || !online}
-                                className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-70"
-                            >
-                                <CheckCircle2 className="h-4 w-4" />
-                                Tanda tangani
-                            </button>
-                        </form>
-                        <form onSubmit={reject} className="space-y-2">
-                            <label className="block text-sm font-medium text-slate-700" htmlFor="rejection-reason">
-                                Alasan reject
-                            </label>
-                            <textarea
-                                id="rejection-reason"
-                                value={data.reason}
-                                onChange={(event) => setData('reason', event.target.value)}
-                                maxLength={1000}
-                                required
-                                className="w-full rounded-md border border-slate-300 px-3 py-2"
-                            />
-                            {errors.reason && <p className="text-sm text-red-600">{errors.reason}</p>}
-                            <button
-                                type="submit"
-                                disabled={processing || !online}
-                                className="rounded-md border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-70"
-                            >
-                                Reject ke Warehouse
-                            </button>
-                        </form>
+                            <form onSubmit={sign}>
+                                <button
+                                    type="submit"
+                                    disabled={processing || !online}
+                                    className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-70"
+                                >
+                                    <CheckCircle2 className="h-4 w-4" />
+                                    Tanda tangani
+                                </button>
+                            </form>
+                            <form onSubmit={reject} className="space-y-2">
+                                <label
+                                    className="block text-sm font-medium text-slate-700"
+                                    htmlFor="rejection-reason"
+                                >
+                                    Alasan reject
+                                </label>
+                                <textarea
+                                    id="rejection-reason"
+                                    value={data.reason}
+                                    onChange={(event) =>
+                                        setData('reason', event.target.value)
+                                    }
+                                    maxLength={1000}
+                                    required
+                                    className="w-full rounded-md border border-slate-300 px-3 py-2"
+                                />
+                                {errors.reason && (
+                                    <p className="text-sm text-red-600">
+                                        {errors.reason}
+                                    </p>
+                                )}
+                                <button
+                                    type="submit"
+                                    disabled={processing || !online}
+                                    className="rounded-md border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-70"
+                                >
+                                    Reject ke Warehouse
+                                </button>
+                            </form>
                         </div>
                     ) : (
                         <p className="mt-5 text-sm text-slate-500">
-                            Round ini sudah tidak menunggu tindakan Head Warehouse.
+                            Round ini sudah tidak menunggu tindakan Head
+                            Warehouse.
                         </p>
                     )}
-
                 </section>
             </main>
         </>

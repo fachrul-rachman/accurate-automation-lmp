@@ -25,8 +25,12 @@ export default function WarehouseInspectionShow({ inspection }: Props) {
                 <section className="mx-auto w-full max-w-5xl">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <p className="text-sm font-medium text-teal-700">Warehouse</p>
-                            <h1 className="mt-2 text-2xl font-semibold">Penerimaan Barang {inspection.pb_number}</h1>
+                            <p className="text-sm font-medium text-teal-700">
+                                Warehouse
+                            </p>
+                            <h1 className="mt-2 text-2xl font-semibold">
+                                Penerimaan Barang {inspection.pb_number}
+                            </h1>
                         </div>
                         <div className="flex flex-wrap gap-2">
                             <Link
@@ -54,19 +58,44 @@ export default function WarehouseInspectionShow({ inspection }: Props) {
                                 <ClipboardList className="h-5 w-5" />
                             </span>
                             <div>
-                                <p className="font-semibold">Detail Penerimaan Barang</p>
-                                <p className="text-sm text-slate-500">Data awal dari Accurate sudah disimpan.</p>
+                                <p className="font-semibold">
+                                    Detail Penerimaan Barang
+                                </p>
+                                <p className="text-sm text-slate-500">
+                                    Data awal dari Accurate sudah disimpan.
+                                </p>
                             </div>
                         </div>
 
                         <dl className="mt-5 grid gap-4 md:grid-cols-2">
-                            <Info label="Nomor Penerimaan Barang" value={inspection.pb_number} />
-                            <Info label="Nomor PO" value={inspection.po_number ?? '-'} />
-                            <Info label="Supplier" value={inspection.supplier_name ?? '-'} />
-                            <Info label="Tanggal Penerimaan Barang" value={inspection.pb_date ?? '-'} />
-                            <Info label="Status Penerimaan Barang" value={inspection.pb_status} />
-                            <Info label="Status PDF" value={inspection.pdf_status} />
-                            <Info label="Jumlah Item" value={String(inspection.item_count)} />
+                            <Info
+                                label="Nomor Penerimaan Barang"
+                                value={inspection.pb_number}
+                            />
+                            <Info
+                                label="Nomor PO"
+                                value={inspection.po_number ?? '-'}
+                            />
+                            <Info
+                                label="Supplier"
+                                value={inspection.supplier_name ?? '-'}
+                            />
+                            <Info
+                                label="Tanggal Penerimaan Barang"
+                                value={inspection.pb_date ?? '-'}
+                            />
+                            <Info
+                                label="Status Penerimaan Barang"
+                                value={inspection.pb_status}
+                            />
+                            <Info
+                                label="Status PDF"
+                                value={inspection.pdf_status}
+                            />
+                            <Info
+                                label="Jumlah Item"
+                                value={String(inspection.item_count)}
+                            />
                         </dl>
 
                         {inspection.pdf_download_url ? (
@@ -89,7 +118,9 @@ function Info({ label, value }: { label: string; value: string }) {
     return (
         <div>
             <dt className="text-sm font-medium text-slate-500">{label}</dt>
-            <dd className="mt-1 text-base font-semibold text-slate-950">{value}</dd>
+            <dd className="mt-1 text-base font-semibold text-slate-950">
+                {value}
+            </dd>
         </div>
     );
 }

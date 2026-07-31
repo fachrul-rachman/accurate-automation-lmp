@@ -4,7 +4,9 @@ namespace App\Http\Requests\Warehouse;
 
 use App\Enums\QualityStatus;
 use App\Enums\QuantityStatus;
+use App\Enums\RoundStatus;
 use App\Enums\UserRole;
+use App\Models\GoodsReceiptRound;
 use App\Models\Location;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
@@ -15,7 +17,10 @@ final class StoreRoundRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->role === UserRole::Warehouse;
+        $round = $this->route('round');
+
+        return $this->user()?->role === UserRole::Warehouse
+            && (! ($round instanceof GoodsReceiptRound) || $round->round_status === RoundStatus::NeedsRevision);
     }
 
     /**

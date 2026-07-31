@@ -63,38 +63,40 @@ export default function WarehousePbSearchResult({
     const online = useOnlineStatus();
     const [step, setStep] = useState<'items' | 'round'>('items');
     const [showValidationErrors, setShowValidationErrors] = useState(false);
-    const { data, setData, post, put, processing, errors, clearErrors } = useForm({
-        location_id: location.id,
-        pb_number: result.number,
-        selected_user_id:
-            editing_round?.selected_user_id ?? users[0]?.id ?? '',
-        specification_matches_po:
-            editing_round?.specification_matches_po ?? true,
-        notes: editing_round?.notes ?? '',
-        delivery_note_photo: null as File | null,
-        receiver_photo: null as File | null,
-        items: result.items.map((item) => {
-            const existing = editing_round?.items.find(
-                (roundItem) =>
-                    roundItem.accurate_detail_item_id ===
-                    item.accurate_item_row_id,
-            );
+    const { data, setData, post, put, processing, errors, clearErrors } =
+        useForm({
+            location_id: location.id,
+            pb_number: result.number,
+            selected_user_id:
+                editing_round?.selected_user_id ?? users[0]?.id ?? '',
+            specification_matches_po:
+                editing_round?.specification_matches_po ?? true,
+            notes: editing_round?.notes ?? '',
+            delivery_note_photo: null as File | null,
+            receiver_photo: null as File | null,
+            items: result.items.map((item) => {
+                const existing = editing_round?.items.find(
+                    (roundItem) =>
+                        roundItem.accurate_detail_item_id ===
+                        item.accurate_item_row_id,
+                );
 
-            return {
-                is_checked: existing !== undefined,
-                accurate_detail_item_id: item.accurate_item_row_id ?? '',
-                quality_status: existing?.quality_status ?? 'GOOD',
-                quantity_status: existing?.quantity_status ?? 'MATCH',
-                received_qty: existing?.received_qty ?? '',
-                damaged_qty: existing?.damaged_qty ?? '0',
-                item_photos: [] as File[],
-                damage_photos: [] as File[],
-            };
-        }),
-    });
+                return {
+                    is_checked: existing !== undefined,
+                    accurate_detail_item_id: item.accurate_item_row_id ?? '',
+                    quality_status: existing?.quality_status ?? 'GOOD',
+                    quantity_status: existing?.quantity_status ?? 'MATCH',
+                    received_qty: existing?.received_qty ?? '',
+                    damaged_qty: existing?.damaged_qty ?? '0',
+                    item_photos: [] as File[],
+                    damage_photos: [] as File[],
+                };
+            }),
+        });
 
     function submit() {
         setShowValidationErrors(true);
+
         if (editing_round) {
             put(`/warehouse/rounds/${editing_round.id}`, {
                 forceFormData: true,
@@ -122,24 +124,25 @@ export default function WarehousePbSearchResult({
     const showRemainingQty = result.items.some(
         (item) => item.qty_remaining !== null,
     );
-    const itemsComplete = data.items.every((item) => {
-        if (!item.is_checked) {
-            return true;
-        }
+    const itemsComplete =
+        data.items.every((item) => {
+            if (!item.is_checked) {
+                return true;
+            }
 
-        const receivedOk =
-            item.quantity_status === 'MATCH' || item.received_qty !== '';
-        const damageOk =
-            item.quality_status !== 'DAMAGED' ||
-            (Number(item.damaged_qty) > 0 && item.damage_photos.length > 0);
+            const receivedOk =
+                item.quantity_status === 'MATCH' || item.received_qty !== '';
+            const damageOk =
+                item.quality_status !== 'DAMAGED' ||
+                (Number(item.damaged_qty) > 0 && item.damage_photos.length > 0);
 
-        return (
-            item.accurate_detail_item_id !== '' &&
-            item.item_photos.length > 0 &&
-            receivedOk &&
-            damageOk
-        );
-    }) && checkedItems.length > 0;
+            return (
+                item.accurate_detail_item_id !== '' &&
+                item.item_photos.length > 0 &&
+                receivedOk &&
+                damageOk
+            );
+        }) && checkedItems.length > 0;
 
     return (
         <>
@@ -179,8 +182,13 @@ export default function WarehousePbSearchResult({
                         {editing_round?.rejection_reason && (
                             <div className="mb-5 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                                 <p className="font-semibold">Alasan reject</p>
-                                <p className="mt-1">{editing_round.rejection_reason}</p>
-                                <p className="mt-2">Unggah ulang seluruh foto setelah memperbaiki data.</p>
+                                <p className="mt-1">
+                                    {editing_round.rejection_reason}
+                                </p>
+                                <p className="mt-2">
+                                    Unggah ulang seluruh foto setelah
+                                    memperbaiki data.
+                                </p>
                             </div>
                         )}
                         <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
@@ -199,7 +207,10 @@ export default function WarehousePbSearchResult({
                         </div>
 
                         <dl className="mt-5 grid gap-4 md:grid-cols-2">
-                            <Info label="Nomor Penerimaan Barang" value={result.number} />
+                            <Info
+                                label="Nomor Penerimaan Barang"
+                                value={result.number}
+                            />
                             <Info
                                 label="Nomor PO"
                                 value={result.po_number ?? '-'}
@@ -273,7 +284,10 @@ export default function WarehousePbSearchResult({
                                         className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
                                     >
                                         {users.map((user) => (
-                                            <option key={user.id} value={user.id}>
+                                            <option
+                                                key={user.id}
+                                                value={user.id}
+                                            >
                                                 {user.name}
                                             </option>
                                         ))}
@@ -404,8 +418,7 @@ export default function WarehousePbSearchResult({
                                                                 checked={
                                                                     data.items[
                                                                         index
-                                                                    ]
-                                                                        .is_checked
+                                                                    ].is_checked
                                                                 }
                                                                 onChange={(
                                                                     event,
@@ -582,7 +595,7 @@ export default function WarehousePbSearchResult({
                                                                     index
                                                                 ]
                                                                     .quantity_status ===
-                                                                'MATCH'
+                                                                    'MATCH'
                                                             }
                                                         />
                                                     </td>
@@ -659,11 +672,9 @@ export default function WarehousePbSearchResult({
                                                                 }}
                                                                 className="mt-1 block w-48 text-xs"
                                                                 disabled={
-                                                                    !data
-                                                                        .items[
+                                                                    !data.items[
                                                                         index
-                                                                    ]
-                                                                        .is_checked
+                                                                    ].is_checked
                                                                 }
                                                             />
                                                         </label>
@@ -678,60 +689,60 @@ export default function WarehousePbSearchResult({
                                                                     `items.${index}.item_photos.0`
                                                                 ]) && (
                                                                 <span className="mt-1 block text-xs text-red-600">
-                                                                    {
-                                                                        formErrors[
-                                                                            `items.${index}.item_photo`
-                                                                        ] ??
+                                                                    {formErrors[
+                                                                        `items.${index}.item_photo`
+                                                                    ] ??
                                                                         formErrors[
                                                                             `items.${index}.item_photos`
                                                                         ] ??
                                                                         formErrors[
                                                                             `items.${index}.item_photos.0`
-                                                                        ]
-                                                                    }
+                                                                        ]}
                                                                 </span>
                                                             )}
                                                         {data.items[index]
                                                             .is_checked &&
                                                             data.items[index]
-                                                            .quality_status ===
-                                                            'DAMAGED' && (
-                                                            <label className="mt-3 block min-w-48 text-xs font-medium text-slate-700">
-                                                                Foto Kerusakan
-                                                                <input
-                                                                    type="file"
-                                                                    accept="image/*"
-                                                                    multiple
-                                                                    onChange={(
-                                                                        event,
-                                                                    ) => {
-                                                                        const items =
-                                                                            [
-                                                                                ...data.items,
-                                                                            ];
-                                                                        items[
-                                                                            index
-                                                                        ] = {
-                                                                            ...items[
+                                                                .quality_status ===
+                                                                'DAMAGED' && (
+                                                                <label className="mt-3 block min-w-48 text-xs font-medium text-slate-700">
+                                                                    Foto
+                                                                    Kerusakan
+                                                                    <input
+                                                                        type="file"
+                                                                        accept="image/*"
+                                                                        multiple
+                                                                        onChange={(
+                                                                            event,
+                                                                        ) => {
+                                                                            const items =
+                                                                                [
+                                                                                    ...data.items,
+                                                                                ];
+                                                                            items[
                                                                                 index
-                                                                            ],
-                                                                            damage_photos:
-                                                                                Array.from(
-                                                                                    event
-                                                                                        .target
-                                                                                        .files ??
-                                                                                        [],
-                                                                                ),
-                                                                        };
-                                                                        setData(
-                                                                            'items',
-                                                                            items,
-                                                                        );
-                                                                    }}
-                                                                    className="mt-1 block w-48 text-xs"
-                                                                />
-                                                            </label>
-                                                        )}
+                                                                            ] =
+                                                                                {
+                                                                                    ...items[
+                                                                                        index
+                                                                                    ],
+                                                                                    damage_photos:
+                                                                                        Array.from(
+                                                                                            event
+                                                                                                .target
+                                                                                                .files ??
+                                                                                                [],
+                                                                                        ),
+                                                                                };
+                                                                            setData(
+                                                                                'items',
+                                                                                items,
+                                                                            );
+                                                                        }}
+                                                                        className="mt-1 block w-48 text-xs"
+                                                                    />
+                                                                </label>
+                                                            )}
                                                         {showValidationErrors &&
                                                             (formErrors[
                                                                 `items.${index}.damage_photo`
@@ -743,17 +754,15 @@ export default function WarehousePbSearchResult({
                                                                     `items.${index}.damage_photos.0`
                                                                 ]) && (
                                                                 <span className="mt-1 block text-xs text-red-600">
-                                                                    {
-                                                                        formErrors[
-                                                                            `items.${index}.damage_photo`
-                                                                        ] ??
+                                                                    {formErrors[
+                                                                        `items.${index}.damage_photo`
+                                                                    ] ??
                                                                         formErrors[
                                                                             `items.${index}.damage_photos`
                                                                         ] ??
                                                                         formErrors[
                                                                             `items.${index}.damage_photos.0`
-                                                                        ]
-                                                                    }
+                                                                        ]}
                                                                 </span>
                                                             )}
                                                     </td>
@@ -798,7 +807,9 @@ export default function WarehousePbSearchResult({
                                     className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-70"
                                 >
                                     <Save className="h-4 w-4" />
-                                    {editing_round ? 'Simpan Perbaikan' : 'Simpan Draft Round'}
+                                    {editing_round
+                                        ? 'Simpan Perbaikan'
+                                        : 'Simpan Draft Round'}
                                 </button>
                             )}
                         </div>

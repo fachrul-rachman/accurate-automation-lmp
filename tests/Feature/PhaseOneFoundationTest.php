@@ -52,7 +52,7 @@ it('redirects authenticated users to the dashboard for their role', function (st
         ->assertInertia(fn (Assert $page) => $page->component($component));
 })->with([
     'warehouse' => ['WAREHOUSE', 'dashboard.warehouse', 'dashboards/warehouse'],
-    'hod' => ['HOD', 'dashboard.hod', 'dashboards/hod'],
+    'hod' => ['USER', 'dashboard.user', 'dashboards/user'],
     'head warehouse' => ['HEAD_WAREHOUSE', 'dashboard.head-warehouse', 'dashboards/head-warehouse'],
     'admin' => ['ADMIN', 'dashboard.admin', 'dashboards/admin'],
 ]);

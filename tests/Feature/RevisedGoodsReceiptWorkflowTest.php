@@ -184,6 +184,22 @@ it('lets Admin remove a final goods receipt from operations', function () {
         'generated_at' => now(),
     ]);
 
+    $this->actingAs($warehouse)
+        ->delete(route('admin.monitoring.destroy', $inspection), [
+            'confirmation_number' => 'RCV-REMOVE',
+            'reason' => 'Tidak berwenang.',
+        ])
+        ->assertForbidden();
+
+    $this->actingAs($admin)
+        ->delete(route('admin.monitoring.destroy', $inspection), [
+            'confirmation_number' => 'SALAH',
+            'reason' => 'Penerimaan Barang dibuat ulang di Accurate.',
+        ])
+        ->assertSessionHasErrors('confirmation_number');
+
+    expect(GoodsReceiptInspection::query()->whereKey($inspection->id)->exists())->toBeTrue();
+
     $this->actingAs($admin)
         ->delete(route('admin.monitoring.destroy', $inspection), [
             'confirmation_number' => 'RCV-REMOVE',
@@ -195,4 +211,16 @@ it('lets Admin remove a final goods receipt from operations', function () {
         ->and(Storage::disk('public')->exists('goods-receipts/RCV-REMOVE/round-1/delivery.jpg'))->toBeFalse()
         ->and(Storage::disk('public')->exists('goods-receipts/RCV-REMOVE/pdf/final.pdf'))->toBeFalse()
         ->and(AuditLog::query()->where('event', 'GOODS_RECEIPT_REMOVED')->exists())->toBeTrue();
+});
+
+it('shows Round Penerimaan Barang submenus and business terminology', function () {
+    $warehouseShell = file_get_contents(resource_path('js/components/warehouse-shell.tsx'));
+    $adminShell = file_get_contents(resource_path('js/components/admin-shell.tsx'));
+    $headWarehouseDashboard = file_get_contents(resource_path('js/pages/dashboards/head-warehouse.tsx'));
+    $userDashboard = file_get_contents(resource_path('js/pages/dashboards/user.tsx'));
+
+    expect($warehouseShell)->toContain('Round Penerimaan Barang', 'Perlu Perbaikan', 'Dalam Proses', 'Parsial', 'Selesai')
+        ->and($adminShell)->toContain('Round Penerimaan Barang')
+        ->and($headWarehouseDashboard)->toContain('Round Penerimaan Barang', 'Menunggu Saya')
+        ->and($userDashboard)->toContain('Round Penerimaan Barang', 'Menunggu Saya');
 });

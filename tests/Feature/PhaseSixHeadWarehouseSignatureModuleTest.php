@@ -54,12 +54,12 @@ function phaseSixRound(Location $location, User $warehouse, User $hod, string $p
         'inspection_id' => $inspection->id,
         'round_number' => 1,
         'created_by' => $warehouse->id,
-        'selected_hod_id' => $hod->id,
+        'selected_user_id' => $hod->id,
         'round_status' => $status,
         'specification_matches_po' => true,
         'submitted_at' => now(),
-        'hod_signed_by' => $hod->id,
-        'hod_signed_at' => now(),
+        'user_signed_by' => null,
+        'user_signed_at' => null,
     ]);
 
     GoodsReceiptRoundItem::query()->create([
@@ -105,12 +105,12 @@ function phaseSixRoundWithMissingAccurateItem(Location $location, User $warehous
         'inspection_id' => $inspection->id,
         'round_number' => 1,
         'created_by' => $warehouse->id,
-        'selected_hod_id' => $hod->id,
+        'selected_user_id' => $hod->id,
         'round_status' => RoundStatus::WaitingHeadWarehouseSignature,
         'specification_matches_po' => true,
         'submitted_at' => now(),
-        'hod_signed_by' => $hod->id,
-        'hod_signed_at' => now(),
+        'user_signed_by' => null,
+        'user_signed_at' => null,
     ]);
 
     GoodsReceiptRoundItem::query()->create([
@@ -134,7 +134,7 @@ function phaseSixRoundWithMissingAccurateItem(Location $location, User $warehous
 it('shows Head Warehouse pending and history rounds', function () {
     $location = phaseSixLocation();
     $warehouse = phaseSixUser('WAREHOUSE', $location);
-    $hod = phaseSixUser('HOD', $location);
+    $hod = phaseSixUser('USER', $location);
     $headWarehouse = phaseSixUser('HEAD_WAREHOUSE');
     $pendingRound = phaseSixRound($location, $warehouse, $hod, 'PB-HW-PENDING');
     phaseSixRound($location, $warehouse, $hod, 'PB-HW-HISTORY', 5, 5, RoundStatus::Signed);
@@ -154,7 +154,7 @@ it('shows Head Warehouse pending and history rounds', function () {
 it('lets Head Warehouse view and sign a waiting round as partial', function () {
     $location = phaseSixLocation();
     $warehouse = phaseSixUser('WAREHOUSE', $location);
-    $hod = phaseSixUser('HOD', $location);
+    $hod = phaseSixUser('USER', $location);
     $headWarehouse = phaseSixUser('HEAD_WAREHOUSE');
     $round = phaseSixRound($location, $warehouse, $hod, 'PB-HW-PARTIAL', 5, 3);
 
@@ -173,23 +173,26 @@ it('lets Head Warehouse view and sign a waiting round as partial', function () {
     $round->refresh();
     $round->inspection->refresh();
 
-    expect($round->round_status)->toBe(RoundStatus::Signed)
+    expect($round->round_status)->toBe(RoundStatus::WaitingUserSignature)
         ->and($round->head_warehouse_signed_by)->toBe($headWarehouse->id)
         ->and($round->head_warehouse_signed_at)->not->toBeNull()
-        ->and($round->completion_result)->toBe('PARTIAL')
+        ->and($round->completion_result)->toBeNull()
         ->and($round->inspection->pb_status)->toBe(GoodsReceiptInspectionStatus::OpenPartial);
 });
 
 it('marks PB complete when signed round fulfills all quantity', function () {
     $location = phaseSixLocation();
     $warehouse = phaseSixUser('WAREHOUSE', $location);
-    $hod = phaseSixUser('HOD', $location);
+    $hod = phaseSixUser('USER', $location);
     $headWarehouse = phaseSixUser('HEAD_WAREHOUSE');
     $round = phaseSixRound($location, $warehouse, $hod, 'PB-HW-COMPLETE', 5, 5);
 
     $this->actingAs($headWarehouse)
         ->post(route('head-warehouse.rounds.sign', $round))
         ->assertRedirect(route('head-warehouse.rounds.show', $round));
+    $this->actingAs($hod)
+        ->post(route('user.rounds.sign', $round))
+        ->assertRedirect(route('user.rounds.show', $round));
 
     $round->refresh();
     $round->inspection->refresh();
@@ -202,13 +205,16 @@ it('marks PB complete when signed round fulfills all quantity', function () {
 it('keeps PB partial when an Accurate item has not arrived yet', function () {
     $location = phaseSixLocation();
     $warehouse = phaseSixUser('WAREHOUSE', $location);
-    $hod = phaseSixUser('HOD', $location);
+    $hod = phaseSixUser('USER', $location);
     $headWarehouse = phaseSixUser('HEAD_WAREHOUSE');
     $round = phaseSixRoundWithMissingAccurateItem($location, $warehouse, $hod);
 
     $this->actingAs($headWarehouse)
         ->post(route('head-warehouse.rounds.sign', $round))
         ->assertRedirect(route('head-warehouse.rounds.show', $round));
+    $this->actingAs($hod)
+        ->post(route('user.rounds.sign', $round))
+        ->assertRedirect(route('user.rounds.show', $round));
 
     $round->refresh();
     $round->inspection->refresh();
@@ -220,7 +226,7 @@ it('keeps PB partial when an Accurate item has not arrived yet', function () {
 it('blocks non Head Warehouse and wrong status from signing', function () {
     $location = phaseSixLocation();
     $warehouse = phaseSixUser('WAREHOUSE', $location);
-    $hod = phaseSixUser('HOD', $location);
+    $hod = phaseSixUser('USER', $location);
     $round = phaseSixRound($location, $warehouse, $hod, 'PB-HW-BLOCKED');
     $wrongStatusRound = phaseSixRound($location, $warehouse, $hod, 'PB-HW-DONE', 5, 5, RoundStatus::Signed);
 

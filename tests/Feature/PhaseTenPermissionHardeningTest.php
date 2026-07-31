@@ -47,12 +47,12 @@ function phaseTenRound(Location $location, User $warehouse, User $hod, string $p
         'inspection_id' => $inspection->id,
         'round_number' => 1,
         'created_by' => $warehouse->id,
-        'selected_hod_id' => $hod->id,
+        'selected_user_id' => $hod->id,
         'round_status' => $status,
         'specification_matches_po' => true,
         'submitted_at' => now(),
-        'hod_signed_by' => in_array($status, [RoundStatus::WaitingHeadWarehouseSignature, RoundStatus::Signed], true) ? $hod->id : null,
-        'hod_signed_at' => in_array($status, [RoundStatus::WaitingHeadWarehouseSignature, RoundStatus::Signed], true) ? now() : null,
+        'user_signed_by' => in_array($status, [RoundStatus::WaitingHeadWarehouseSignature, RoundStatus::Signed], true) ? $hod->id : null,
+        'user_signed_at' => in_array($status, [RoundStatus::WaitingHeadWarehouseSignature, RoundStatus::Signed], true) ? now() : null,
     ]);
 
     GoodsReceiptRoundItem::query()->create([
@@ -76,11 +76,11 @@ function phaseTenRound(Location $location, User $warehouse, User $hod, string $p
 it('blocks direct access to dashboards for the wrong role', function () {
     $location = Location::factory()->create();
     $warehouse = phaseTenUser('WAREHOUSE', $location);
-    $hod = phaseTenUser('HOD', $location);
+    $hod = phaseTenUser('USER', $location);
     $headWarehouse = phaseTenUser('HEAD_WAREHOUSE');
     $admin = phaseTenUser('ADMIN');
 
-    $this->actingAs($warehouse)->get(route('dashboard.hod'))->assertForbidden();
+    $this->actingAs($warehouse)->get(route('dashboard.user'))->assertForbidden();
     $this->actingAs($warehouse)->get(route('dashboard.head-warehouse'))->assertForbidden();
     $this->actingAs($warehouse)->get(route('dashboard.admin'))->assertForbidden();
 
@@ -94,7 +94,7 @@ it('blocks warehouse from viewing PB detail outside assigned locations', functio
     $otherLocation = Location::factory()->create();
     $warehouse = phaseTenUser('WAREHOUSE', $allowedLocation);
     $otherWarehouse = phaseTenUser('WAREHOUSE', $otherLocation);
-    $hod = phaseTenUser('HOD', $otherLocation);
+    $hod = phaseTenUser('USER', $otherLocation);
     $round = phaseTenRound($otherLocation, $otherWarehouse, $hod, 'PB-OTHER-LOCATION', RoundStatus::Signed);
 
     $this->actingAs($warehouse)
@@ -105,10 +105,10 @@ it('blocks warehouse from viewing PB detail outside assigned locations', functio
 it('blocks Head Warehouse from opening rounds before Head Warehouse step', function () {
     $location = Location::factory()->create();
     $warehouse = phaseTenUser('WAREHOUSE', $location);
-    $hod = phaseTenUser('HOD', $location);
+    $hod = phaseTenUser('USER', $location);
     $headWarehouse = phaseTenUser('HEAD_WAREHOUSE');
     $draftRound = phaseTenRound($location, $warehouse, $hod, 'PB-HW-NOT-READY', RoundStatus::Draft);
-    $hodRound = phaseTenRound($location, $warehouse, $hod, 'PB-HW-HOD-STEP', RoundStatus::WaitingHodSignature);
+    $hodRound = phaseTenRound($location, $warehouse, $hod, 'PB-HW-HOD-STEP', RoundStatus::WaitingHeadWarehouseSignature);
 
     $this->actingAs($headWarehouse)
         ->get(route('head-warehouse.rounds.show', $draftRound))
@@ -116,7 +116,7 @@ it('blocks Head Warehouse from opening rounds before Head Warehouse step', funct
 
     $this->actingAs($headWarehouse)
         ->get(route('head-warehouse.rounds.show', $hodRound))
-        ->assertForbidden();
+        ->assertOk();
 });
 
 it('allows only Admin and assigned-location Warehouse to download final PDF', function () {
@@ -126,7 +126,7 @@ it('allows only Admin and assigned-location Warehouse to download final PDF', fu
     $otherLocation = Location::factory()->create();
     $warehouse = phaseTenUser('WAREHOUSE', $location);
     $otherWarehouse = phaseTenUser('WAREHOUSE', $otherLocation);
-    $hod = phaseTenUser('HOD', $location);
+    $hod = phaseTenUser('USER', $location);
     $headWarehouse = phaseTenUser('HEAD_WAREHOUSE');
     $admin = phaseTenUser('ADMIN');
     $round = phaseTenRound($location, $warehouse, $hod, 'PB-PDF-PERMISSION', RoundStatus::Signed);

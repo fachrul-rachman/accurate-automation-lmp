@@ -56,13 +56,13 @@ function phaseSevenRound(Location $location, User $warehouse, User $hod, string 
         'inspection_id' => $inspection->id,
         'round_number' => 1,
         'created_by' => $warehouse->id,
-        'selected_hod_id' => $hod->id,
-        'round_status' => RoundStatus::WaitingHeadWarehouseSignature,
+        'selected_user_id' => $hod->id,
+        'round_status' => RoundStatus::WaitingUserSignature,
         'specification_matches_po' => true,
         'notes' => 'Barang diterima baik.',
         'submitted_at' => now(),
-        'hod_signed_by' => $hod->id,
-        'hod_signed_at' => now(),
+        'head_warehouse_signed_by' => phaseSevenUser('HEAD_WAREHOUSE')->id,
+        'head_warehouse_signed_at' => now(),
     ]);
 
     GoodsReceiptRoundItem::query()->create([
@@ -88,13 +88,13 @@ it('generates final PDF when Head Warehouse signs a complete PB', function () {
 
     $location = phaseSevenLocation();
     $warehouse = phaseSevenUser('WAREHOUSE', $location);
-    $hod = phaseSevenUser('HOD', $location);
+    $hod = phaseSevenUser('USER', $location);
     $headWarehouse = phaseSevenUser('HEAD_WAREHOUSE');
     $round = phaseSevenRound($location, $warehouse, $hod, 'PB-PDF-COMPLETE', 5, 5);
 
-    $this->actingAs($headWarehouse)
-        ->post(route('head-warehouse.rounds.sign', $round))
-        ->assertRedirect(route('head-warehouse.rounds.show', $round));
+    $this->actingAs($hod)
+        ->post(route('user.rounds.sign', $round))
+        ->assertRedirect(route('user.rounds.show', $round));
 
     $round->refresh();
     $round->inspection->refresh();
@@ -113,13 +113,13 @@ it('does not generate final PDF for partial PB', function () {
 
     $location = phaseSevenLocation();
     $warehouse = phaseSevenUser('WAREHOUSE', $location);
-    $hod = phaseSevenUser('HOD', $location);
+    $hod = phaseSevenUser('USER', $location);
     $headWarehouse = phaseSevenUser('HEAD_WAREHOUSE');
     $round = phaseSevenRound($location, $warehouse, $hod, 'PB-PDF-PARTIAL', 5, 3);
 
-    $this->actingAs($headWarehouse)
-        ->post(route('head-warehouse.rounds.sign', $round))
-        ->assertRedirect(route('head-warehouse.rounds.show', $round));
+    $this->actingAs($hod)
+        ->post(route('user.rounds.sign', $round))
+        ->assertRedirect(route('user.rounds.show', $round));
 
     $round->inspection->refresh();
 
@@ -133,11 +133,11 @@ it('lets authorized users download generated final PDF', function () {
 
     $location = phaseSevenLocation();
     $warehouse = phaseSevenUser('WAREHOUSE', $location);
-    $hod = phaseSevenUser('HOD', $location);
+    $hod = phaseSevenUser('USER', $location);
     $headWarehouse = phaseSevenUser('HEAD_WAREHOUSE');
     $round = phaseSevenRound($location, $warehouse, $hod, 'PB-PDF-DOWNLOAD', 5, 5);
 
-    $this->actingAs($headWarehouse)->post(route('head-warehouse.rounds.sign', $round));
+    $this->actingAs($hod)->post(route('user.rounds.sign', $round));
 
     $pdf = PdfExport::query()->where('inspection_id', $round->inspection_id)->firstOrFail();
 
@@ -152,11 +152,11 @@ it('shows final PDF download link on Warehouse dashboard and round detail after 
 
     $location = phaseSevenLocation();
     $warehouse = phaseSevenUser('WAREHOUSE', $location);
-    $hod = phaseSevenUser('HOD', $location);
+    $hod = phaseSevenUser('USER', $location);
     $headWarehouse = phaseSevenUser('HEAD_WAREHOUSE');
     $round = phaseSevenRound($location, $warehouse, $hod, 'PB-PDF-HW-LINK', 5, 5);
 
-    $this->actingAs($headWarehouse)->post(route('head-warehouse.rounds.sign', $round));
+    $this->actingAs($hod)->post(route('user.rounds.sign', $round));
 
     $pdf = PdfExport::query()->where('inspection_id', $round->inspection_id)->firstOrFail();
 

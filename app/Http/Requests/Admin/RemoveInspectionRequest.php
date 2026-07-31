@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\UserRole;
+use App\Models\GoodsReceiptInspection;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -18,8 +19,12 @@ final class RemoveInspectionRequest extends FormRequest
      */
     public function rules(): array
     {
+        $inspection = $this->route('inspection');
+
         return [
-            'confirmation_number' => ['required', 'string', Rule::in([$this->route('inspection')->pb_number])],
+            'confirmation_number' => ['required', 'string', Rule::in([
+                $inspection instanceof GoodsReceiptInspection ? $inspection->pb_number : '',
+            ])],
             'reason' => ['required', 'string', 'max:1000'],
         ];
     }

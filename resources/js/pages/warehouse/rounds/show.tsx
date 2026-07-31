@@ -58,35 +58,57 @@ export default function WarehouseRoundShow({ round }: Props) {
 
     return (
         <>
-            <Head title={`Round ${round.round_number} - ${round.inspection.pb_number}`} />
+            <Head
+                title={`Round ${round.round_number} - ${round.inspection.pb_number}`}
+            />
             <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-950">
                 <section className="mx-auto w-full max-w-5xl">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <p className="text-sm font-medium text-teal-700">Warehouse - {round.inspection.location_name ?? '-'}</p>
-                            <h1 className="mt-2 text-2xl font-semibold">Penerimaan Barang {round.inspection.pb_number} / Round {round.round_number}</h1>
+                            <p className="text-sm font-medium text-teal-700">
+                                Warehouse -{' '}
+                                {round.inspection.location_name ?? '-'}
+                            </p>
+                            <h1 className="mt-2 text-2xl font-semibold">
+                                Penerimaan Barang {round.inspection.pb_number} /
+                                Round {round.round_number}
+                            </h1>
                             <StatusChip
                                 status={round.round_status}
                                 completionResult={round.completion_result}
                             />
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            <Link href="/dashboard/warehouse" className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                            <Link
+                                href="/dashboard/warehouse"
+                                className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                            >
                                 <ArrowLeft className="h-4 w-4" />
                                 Dashboard
                             </Link>
-                            <Link href="/logout" method="post" as="button" className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                            <Link
+                                href="/logout"
+                                method="post"
+                                as="button"
+                                className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                            >
                                 <LogOut className="h-4 w-4" />
                                 Logout
                             </Link>
                             {round.pdf_download_url ? (
-                                <a href={round.pdf_download_url} className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+                                <a
+                                    href={round.pdf_download_url}
+                                    className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+                                >
                                     <Download className="h-4 w-4" />
                                     Download PDF Final
                                 </a>
                             ) : null}
                             {round.continue_url ? (
-                                <Link href={round.continue_url} className="inline-flex items-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700">
+                                <Link
+                                    href={round.continue_url}
+                                    className="inline-flex items-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                                >
                                     Lanjut Round
                                 </Link>
                             ) : null}
@@ -95,12 +117,32 @@ export default function WarehouseRoundShow({ round }: Props) {
 
                     <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
                         <dl className="grid gap-4 md:grid-cols-2">
-                            <Info label="Nomor PO" value={round.inspection.po_number ?? '-'} />
-                            <Info label="Supplier" value={round.inspection.supplier_name ?? '-'} />
-                            <Info label="Spesifikasi sesuai PO" value={round.specification_matches_po ? 'Ya' : 'Tidak'} />
-                            <Info label="Submitted At" value={round.submitted_at ?? '-'} />
+                            <Info
+                                label="Nomor PO"
+                                value={round.inspection.po_number ?? '-'}
+                            />
+                            <Info
+                                label="Supplier"
+                                value={round.inspection.supplier_name ?? '-'}
+                            />
+                            <Info
+                                label="Spesifikasi sesuai PO"
+                                value={
+                                    round.specification_matches_po
+                                        ? 'Ya'
+                                        : 'Tidak'
+                                }
+                            />
+                            <Info
+                                label="Submitted At"
+                                value={round.submitted_at ?? '-'}
+                            />
                         </dl>
-                        {round.notes && <p className="mt-4 text-sm text-slate-700">{round.notes}</p>}
+                        {round.notes && (
+                            <p className="mt-4 text-sm text-slate-700">
+                                {round.notes}
+                            </p>
+                        )}
                     </div>
 
                     {round.partial_reasons.length > 0 && (
@@ -112,7 +154,10 @@ export default function WarehouseRoundShow({ round }: Props) {
                             <p className="font-semibold">Perlu perbaikan</p>
                             <p className="mt-1">{round.rejection_reason}</p>
                             {round.edit_url && (
-                                <Link href={round.edit_url} className="mt-3 inline-flex rounded-md bg-red-700 px-4 py-2 font-semibold text-white">
+                                <Link
+                                    href={round.edit_url}
+                                    className="mt-3 inline-flex rounded-md bg-red-700 px-4 py-2 font-semibold text-white"
+                                >
                                     Perbaiki pemeriksaan
                                 </Link>
                             )}
@@ -138,20 +183,40 @@ export default function WarehouseRoundShow({ round }: Props) {
                             </thead>
                             <tbody>
                                 {round.items.map((item) => (
-                                    <tr key={item.id} className="border-t border-slate-200">
-                                        <td className="px-4 py-3">{item.item_code ?? '-'}</td>
-                                        <td className="px-4 py-3">{item.item_name}</td>
-                                        <td className="px-4 py-3">{item.po_number ?? '-'}</td>
-                                        <td className="px-4 py-3">{item.qty} {item.unit ?? ''}</td>
+                                    <tr
+                                        key={item.id}
+                                        className="border-t border-slate-200"
+                                    >
+                                        <td className="px-4 py-3">
+                                            {item.item_code ?? '-'}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {item.item_name}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {item.po_number ?? '-'}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {item.qty} {item.unit ?? ''}
+                                        </td>
                                         {showRemainingQty && (
                                             <td className="px-4 py-3">
-                                                {item.qty_remaining} {item.unit ?? ''}
+                                                {item.qty_remaining}{' '}
+                                                {item.unit ?? ''}
                                             </td>
                                         )}
-                                        <td className="px-4 py-3">{item.received_qty ?? '-'}</td>
-                                        <td className="px-4 py-3">{item.damaged_qty}</td>
-                                        <td className="px-4 py-3">{item.quality_status}</td>
-                                        <td className="px-4 py-3">{item.photo_count}</td>
+                                        <td className="px-4 py-3">
+                                            {item.received_qty ?? '-'}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {item.damaged_qty}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {item.quality_status}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {item.photo_count}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -160,7 +225,11 @@ export default function WarehouseRoundShow({ round }: Props) {
 
                     {round.can_edit && (
                         <form onSubmit={submit} className="mt-5">
-                            <button type="submit" disabled={processing} className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-70">
+                            <button
+                                type="submit"
+                                disabled={processing}
+                                className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-70"
+                            >
                                 <Send className="h-4 w-4" />
                                 Submit ke User
                             </button>
@@ -176,7 +245,9 @@ function Info({ label, value }: { label: string; value: string }) {
     return (
         <div>
             <dt className="text-sm font-medium text-slate-500">{label}</dt>
-            <dd className="mt-1 text-base font-semibold text-slate-950">{value}</dd>
+            <dd className="mt-1 text-base font-semibold text-slate-950">
+                {value}
+            </dd>
         </div>
     );
 }

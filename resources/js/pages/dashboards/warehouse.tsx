@@ -37,7 +37,10 @@ type ActiveRound = {
     continue_url: string | null;
 };
 
-function viewLabel(view: 'draft' | 'revision' | 'process' | 'partial' | 'complete') {
+type WarehouseView =
+    'search' | 'draft' | 'revision' | 'process' | 'partial' | 'complete';
+
+function viewLabel(view: Exclude<WarehouseView, 'search'>) {
     return {
         draft: 'Draft',
         revision: 'Perlu Perbaikan',
@@ -56,15 +59,34 @@ export default function WarehouseDashboard({
     pb_number,
 }: Props) {
     const online = useOnlineStatus();
-    const [activeView, setActiveView] = useState<
-        'search' | 'draft' | 'revision' | 'process' | 'partial' | 'complete'
-    >('search');
+    const [activeView, setActiveView] = useState<WarehouseView>('search');
     const visibleRounds = active_rounds.filter((round) => {
-        if (activeView === 'draft') return round.status === 'DRAFT';
-        if (activeView === 'revision') return round.status === 'NEEDS_REVISION';
-        if (activeView === 'process') return ['WAITING_HEAD_WAREHOUSE_SIGNATURE', 'WAITING_USER_SIGNATURE'].includes(round.status);
-        if (activeView === 'partial') return round.completion_result === 'PARTIAL';
-        if (activeView === 'complete') return round.completion_result === 'COMPLETE' || round.pdf_download_url !== null;
+        if (activeView === 'draft') {
+            return round.status === 'DRAFT';
+        }
+
+        if (activeView === 'revision') {
+            return round.status === 'NEEDS_REVISION';
+        }
+
+        if (activeView === 'process') {
+            return [
+                'WAITING_HEAD_WAREHOUSE_SIGNATURE',
+                'WAITING_USER_SIGNATURE',
+            ].includes(round.status);
+        }
+
+        if (activeView === 'partial') {
+            return round.completion_result === 'PARTIAL';
+        }
+
+        if (activeView === 'complete') {
+            return (
+                round.completion_result === 'COMPLETE' ||
+                round.pdf_download_url !== null
+            );
+        }
+
         return false;
     });
     const { data, setData, post, processing, errors } = useForm({
@@ -82,10 +104,12 @@ export default function WarehouseDashboard({
             <Head title="Warehouse" />
             <WarehouseShell
                 activeView={activeView}
-                onViewChange={(view) =>
-                    setActiveView(view === 'rounds' ? 'rounds' : 'pb-search')
+                onViewChange={(view) => setActiveView(view as WarehouseView)}
+                title={
+                    activeView === 'search'
+                        ? 'Cari Penerimaan Barang'
+                        : viewLabel(activeView)
                 }
-                title={activeView === 'search' ? 'Cari Penerimaan Barang' : viewLabel(activeView)}
                 roundCount={active_round_count}
                 userSummary={user_summary}
             >
@@ -100,7 +124,8 @@ export default function WarehouseDashboard({
                                     Cari Penerimaan Barang Accurate
                                 </h2>
                                 <p className="mt-1 text-sm text-slate-500">
-                                    Pilih lokasi lalu masukkan nomor Penerimaan Barang.
+                                    Pilih lokasi lalu masukkan nomor Penerimaan
+                                    Barang.
                                 </p>
                             </div>
                             <form
@@ -196,7 +221,8 @@ export default function WarehouseDashboard({
                                         {viewLabel(activeView)}
                                     </h2>
                                     <p className="mt-1 text-sm text-slate-500">
-                                        Status Penerimaan Barang yang sudah pernah disimpan.
+                                        Status Penerimaan Barang yang sudah
+                                        pernah disimpan.
                                     </p>
                                 </div>
                                 <span className="rounded-full bg-teal-50 px-3 py-1 text-sm font-semibold text-teal-700">
@@ -345,11 +371,11 @@ function StatusChip({
     const className =
         {
             DRAFT: 'border-amber-200 bg-amber-50 text-amber-700',
-            WAITING_HEAD_WAREHOUSE_SIGNATURE: 'border-sky-200 bg-sky-50 text-sky-700',
-            WAITING_USER_SIGNATURE: 'border-violet-200 bg-violet-50 text-violet-700',
-            NEEDS_REVISION: 'border-red-200 bg-red-50 text-red-700',
             WAITING_HEAD_WAREHOUSE_SIGNATURE:
+                'border-sky-200 bg-sky-50 text-sky-700',
+            WAITING_USER_SIGNATURE:
                 'border-violet-200 bg-violet-50 text-violet-700',
+            NEEDS_REVISION: 'border-red-200 bg-red-50 text-red-700',
             SIGNED: 'border-emerald-200 bg-emerald-50 text-emerald-700',
         }[status] ?? 'border-slate-200 bg-slate-50 text-slate-700';
 

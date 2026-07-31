@@ -8,7 +8,10 @@ const appName = import.meta.env.VITE_APP_NAME || 'Accurate Check';
 
 createInertiaApp({
     resolve: (name) => {
-        const pages = import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx', { eager: true });
+        const pages = import.meta.glob<{ default: ComponentType }>(
+            './pages/**/*.tsx',
+            { eager: true },
+        );
         const page = pages[`./pages/${name}.tsx`];
 
         if (!page) {

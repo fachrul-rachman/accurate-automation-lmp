@@ -52,7 +52,10 @@ export default function AdminMonitoringIndex({
     return (
         <>
             <Head title="Monitoring Penerimaan Barang" />
-            <AdminShell current="monitoring" title="Monitoring Penerimaan Barang">
+            <AdminShell
+                current="monitoring"
+                title="Monitoring Penerimaan Barang"
+            >
                 <form
                     onSubmit={submit}
                     className="mt-5 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-[220px_1fr_auto]"
@@ -99,7 +102,9 @@ export default function AdminMonitoringIndex({
                     <table className="w-full text-left text-sm">
                         <thead className="bg-slate-100 text-slate-700">
                             <tr>
-                                <th className="px-4 py-3">Nomor Penerimaan Barang</th>
+                                <th className="px-4 py-3">
+                                    Nomor Penerimaan Barang
+                                </th>
                                 <th className="px-4 py-3">Nomor PO</th>
                                 <th className="px-4 py-3">Lokasi</th>
                                 <th className="px-4 py-3">Supplier</th>
@@ -117,7 +122,8 @@ export default function AdminMonitoringIndex({
                                         colSpan={9}
                                         className="px-4 py-8 text-center text-slate-500"
                                     >
-                                        Tidak ada Penerimaan Barang untuk filter ini.
+                                        Tidak ada Penerimaan Barang untuk filter
+                                        ini.
                                     </td>
                                 </tr>
                             ) : (

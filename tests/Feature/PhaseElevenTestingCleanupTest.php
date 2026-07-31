@@ -91,7 +91,7 @@ it('writes audit logs for admin user and location management', function () {
             'name' => 'User Karawang',
             'email' => 'user-karawang@example.test',
             'password' => 'password',
-            'role' => 'HOD',
+            'role' => 'USER',
             'location_ids' => [$locations[0]->id],
             'is_active' => true,
         ])
@@ -103,7 +103,7 @@ it('writes audit logs for admin user and location management', function () {
         ->put(route('admin.users.update', $managedUser), [
             'name' => 'User Tangerang',
             'email' => 'user-tangerang@example.test',
-            'role' => 'HOD',
+            'role' => 'USER',
             'location_ids' => [$locations[1]->id],
             'is_active' => true,
         ])
@@ -132,23 +132,23 @@ it('writes audit logs for admin user and location management', function () {
     expect($events)
         ->toContain('USER_CREATED')
         ->toContain('USER_UPDATED')
-        ->toContain('HOD_MAPPING_UPDATED')
+        ->toContain('USER_LOCATION_ACCESS_UPDATED')
         ->toContain('LOCATION_CREATED')
         ->toContain('LOCATION_UPDATED');
 });
 
-it('writes audit logs for PB import and draft update', function () {
+it('writes audit logs for Penerimaan Barang import and rejected round revision', function () {
     Storage::fake('public');
     $location = phaseElevenLocation();
     $warehouse = phaseElevenUser('WAREHOUSE', $location);
-    $user = phaseElevenUser('HOD', $location);
+    $user = phaseElevenUser('USER', $location);
     fakePhaseElevenAccurate();
 
     $this->actingAs($warehouse)
         ->post(route('warehouse.rounds.store'), [
             'pb_number' => 'PB-011',
             'location_id' => $location->id,
-            'selected_hod_id' => $user->id,
+            'selected_user_id' => $user->id,
             'specification_matches_po' => true,
             'notes' => null,
             'delivery_note_photo' => UploadedFile::fake()->image('sj.jpg'),
@@ -167,10 +167,27 @@ it('writes audit logs for PB import and draft update', function () {
 
     $inspection = GoodsReceiptInspection::query()->firstOrFail();
     $round = GoodsReceiptRound::query()->firstOrFail();
+    $round->update([
+        'round_status' => 'NEEDS_REVISION',
+        'rejection_reason' => 'Foto perlu diperjelas.',
+    ]);
 
     $this->actingAs($warehouse)
         ->put(route('warehouse.rounds.update', $round), [
+            'pb_number' => 'PB-011',
+            'location_id' => $location->id,
+            'selected_user_id' => $user->id,
+            'specification_matches_po' => true,
             'notes' => 'Catatan draft diperbarui',
+            'delivery_note_photo' => UploadedFile::fake()->image('sj-revised.jpg'),
+            'receiver_photo' => UploadedFile::fake()->image('receiver-revised.jpg'),
+            'items' => [[
+                'accurate_detail_item_id' => '9901',
+                'quality_status' => 'GOOD',
+                'quantity_status' => 'MATCH',
+                'damaged_qty' => 0,
+                'item_photo' => UploadedFile::fake()->image('item-revised.jpg'),
+            ]],
         ])
         ->assertRedirect(route('warehouse.rounds.show', $round));
 
@@ -181,7 +198,7 @@ it('writes audit logs for PB import and draft update', function () {
     ]);
 
     $this->assertDatabaseHas('audit_logs', [
-        'event' => 'ROUND_UPDATED',
+        'event' => 'ROUND_REVISED',
         'auditable_type' => GoodsReceiptRound::class,
         'auditable_id' => (string) $round->id,
     ]);

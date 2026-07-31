@@ -73,7 +73,11 @@ export default function AdminMonitoringShow({
     function removeFromOperations(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
-        if (window.confirm('Hapus Penerimaan Barang ini dari operasional? Tindakan ini tidak dapat dibatalkan.')) {
+        if (
+            window.confirm(
+                'Hapus Penerimaan Barang ini dari operasional? Tindakan ini tidak dapat dibatalkan.',
+            )
+        ) {
             removal.delete(`/admin/monitoring/${inspection.id}`);
         }
     }
@@ -81,7 +85,10 @@ export default function AdminMonitoringShow({
     return (
         <>
             <Head title={`Monitoring ${inspection.pb_number}`} />
-            <AdminShell current="monitoring" title={`Penerimaan Barang ${inspection.pb_number}`}>
+            <AdminShell
+                current="monitoring"
+                title={`Penerimaan Barang ${inspection.pb_number}`}
+            >
                 <div className="mt-5 flex flex-wrap gap-2">
                     <Link
                         href="/admin/monitoring"
@@ -102,9 +109,14 @@ export default function AdminMonitoringShow({
                 </div>
 
                 <section className="mt-5 rounded-lg border border-slate-200 bg-white p-5">
-                    <h2 className="text-base font-semibold">Detail Penerimaan Barang</h2>
+                    <h2 className="text-base font-semibold">
+                        Detail Penerimaan Barang
+                    </h2>
                     <dl className="mt-4 grid gap-4 md:grid-cols-2">
-                        <Info label="Nomor Penerimaan Barang" value={inspection.pb_number} />
+                        <Info
+                            label="Nomor Penerimaan Barang"
+                            value={inspection.pb_number}
+                        />
                         <Info
                             label="Nomor PO"
                             value={inspection.po_number ?? '-'}
@@ -125,27 +137,50 @@ export default function AdminMonitoringShow({
                             label="Dibuat oleh"
                             value={inspection.created_by ?? '-'}
                         />
-                        <Info label="Status Penerimaan Barang" value={inspection.pb_status} />
-                        <Info label="Status PDF" value={inspection.pdf_status} />
+                        <Info
+                            label="Status Penerimaan Barang"
+                            value={inspection.pb_status}
+                        />
+                        <Info
+                            label="Status PDF"
+                            value={inspection.pdf_status}
+                        />
                     </dl>
                 </section>
 
                 <section className="mt-5 rounded-lg border border-red-200 bg-white p-5">
-                    <h2 className="text-base font-semibold text-red-700">Hapus dari Operasional</h2>
+                    <h2 className="text-base font-semibold text-red-700">
+                        Hapus dari Operasional
+                    </h2>
                     <p className="mt-2 text-sm text-slate-600">
-                        Data, foto, dan PDF akan dihapus permanen. Jejak penghapusan tetap disimpan.
+                        Data, foto, dan PDF akan dihapus permanen. Jejak
+                        penghapusan tetap disimpan.
                     </p>
-                    <form onSubmit={removeFromOperations} className="mt-4 grid gap-4 md:grid-cols-2">
+                    <form
+                        onSubmit={removeFromOperations}
+                        className="mt-4 grid gap-4 md:grid-cols-2"
+                    >
                         <label className="block text-sm">
-                            <span className="font-medium text-slate-700">Alasan</span>
+                            <span className="font-medium text-slate-700">
+                                Alasan
+                            </span>
                             <textarea
                                 value={removal.data.reason}
-                                onChange={(event) => removal.setData('reason', event.target.value)}
+                                onChange={(event) =>
+                                    removal.setData(
+                                        'reason',
+                                        event.target.value,
+                                    )
+                                }
                                 required
                                 maxLength={1000}
                                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
                             />
-                            {removal.errors.reason && <span className="mt-1 block text-red-600">{removal.errors.reason}</span>}
+                            {removal.errors.reason && (
+                                <span className="mt-1 block text-red-600">
+                                    {removal.errors.reason}
+                                </span>
+                            )}
                         </label>
                         <label className="block text-sm">
                             <span className="font-medium text-slate-700">
@@ -153,11 +188,20 @@ export default function AdminMonitoringShow({
                             </span>
                             <input
                                 value={removal.data.confirmation_number}
-                                onChange={(event) => removal.setData('confirmation_number', event.target.value)}
+                                onChange={(event) =>
+                                    removal.setData(
+                                        'confirmation_number',
+                                        event.target.value,
+                                    )
+                                }
                                 required
                                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
                             />
-                            {removal.errors.confirmation_number && <span className="mt-1 block text-red-600">{removal.errors.confirmation_number}</span>}
+                            {removal.errors.confirmation_number && (
+                                <span className="mt-1 block text-red-600">
+                                    {removal.errors.confirmation_number}
+                                </span>
+                            )}
                         </label>
                         <button
                             type="submit"
@@ -198,19 +242,27 @@ export default function AdminMonitoringShow({
                                 />
                                 <Info
                                     label="User"
-                                    value={round.user_signed_by ?? round.selected_user ?? '-'}
+                                    value={
+                                        round.user_signed_by ??
+                                        round.selected_user ??
+                                        '-'
+                                    }
                                 />
                                 <Info
                                     label="Tanda tangan User"
                                     value={round.user_signed_at ?? '-'}
                                 />
                                 <Info
-                                    label="Kepala Gudang"
-                                    value={round.head_warehouse_signed_by ?? '-'}
+                                    label="Head Warehouse"
+                                    value={
+                                        round.head_warehouse_signed_by ?? '-'
+                                    }
                                 />
                                 <Info
-                                    label="Tanda tangan Kepala Gudang"
-                                    value={round.head_warehouse_signed_at ?? '-'}
+                                    label="Tanda tangan Head Warehouse"
+                                    value={
+                                        round.head_warehouse_signed_at ?? '-'
+                                    }
                                 />
                                 <Info
                                     label="Foto round"

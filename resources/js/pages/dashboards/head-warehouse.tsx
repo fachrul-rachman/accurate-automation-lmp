@@ -52,11 +52,11 @@ export default function HeadWarehouseDashboard({
     const title =
         activeView === 'history'
             ? 'Riwayat Diketahui'
-            : 'Menunggu Tanda Tangan Kepala Gudang';
+            : 'Menunggu Tanda Tangan Head Warehouse';
 
     return (
         <>
-            <Head title="Dashboard Kepala Gudang" />
+            <Head title="Dashboard Head Warehouse" />
             <HeadWarehouseShell
                 activeView={activeView}
                 onViewChange={(view) =>
@@ -72,10 +72,11 @@ export default function HeadWarehouseDashboard({
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
                                 <h2 className="text-base font-semibold">
-                                    Menunggu tanda tangan kepala gudang
+                                    Menunggu tanda tangan Head Warehouse
                                 </h2>
                                 <p className="mt-1 text-sm text-slate-500">
-                                    Penerimaan Barang yang menunggu tindakan Anda.
+                                    Penerimaan Barang yang menunggu tindakan
+                                    Anda.
                                 </p>
                             </div>
                             <span className="rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
@@ -85,7 +86,8 @@ export default function HeadWarehouseDashboard({
 
                         {pending_rounds.length === 0 ? (
                             <p className="mt-5 rounded-md border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">
-                                Belum ada Penerimaan Barang yang menunggu tindakan.
+                                Belum ada Penerimaan Barang yang menunggu
+                                tindakan.
                             </p>
                         ) : (
                             <RoundTable rounds={pending_rounds} />
@@ -319,7 +321,7 @@ function HeadWarehouseShell({
             >
                 <section className="mx-auto w-full max-w-6xl pt-12 lg:pt-0">
                     <p className="text-sm font-medium text-teal-700">
-                        Kepala Gudang
+                        Head Warehouse
                     </p>
                     <h1 className="mt-2 text-2xl font-semibold">{title}</h1>
                     <p className="mt-1 text-sm text-slate-500">
@@ -353,12 +355,16 @@ function HeadWarehouseSidebar({
                 </p>
                 {open && (
                     <p className="mt-1 text-xs text-slate-500">
-                        Kepala Gudang Console
+                        Head Warehouse Console
                     </p>
                 )}
             </div>
             <nav className="flex-1 space-y-1 p-3">
-                {open && <p className="px-3 pb-2 text-xs font-semibold uppercase text-slate-500">Round Penerimaan Barang</p>}
+                {open && (
+                    <p className="px-3 pb-2 text-xs font-semibold text-slate-500 uppercase">
+                        Round Penerimaan Barang
+                    </p>
+                )}
                 {navItems.map((item) => {
                     const Icon = item.icon;
                     const active = activeView === item.key;

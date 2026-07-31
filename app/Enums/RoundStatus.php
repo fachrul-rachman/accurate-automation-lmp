@@ -14,7 +14,7 @@ enum RoundStatus: string
     {
         return match ($this) {
             self::Draft => 'Draft',
-            self::WaitingHeadWarehouseSignature => 'Menunggu tanda tangan kepala gudang',
+            self::WaitingHeadWarehouseSignature => 'Menunggu tanda tangan Head Warehouse',
             self::WaitingUserSignature => 'Menunggu tanda tangan user',
             self::NeedsRevision => 'Perlu perbaikan Warehouse',
             self::Signed => 'Selesai',

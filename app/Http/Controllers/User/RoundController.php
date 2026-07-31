@@ -28,7 +28,7 @@ final class RoundController extends Controller
         $round->load(['inspection.location', 'items.photos', 'attachments']);
         $remainingByItem = RoundItemQuantity::remainingByRoundItem($round);
 
-        return Inertia::render('hod/rounds/show', [
+        return Inertia::render('user/rounds/show', [
             'round' => [
                 'id' => $round->id,
                 'round_number' => $round->round_number,

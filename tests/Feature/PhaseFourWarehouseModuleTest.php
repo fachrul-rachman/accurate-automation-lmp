@@ -39,7 +39,7 @@ function phaseFourWarehouse(Location $location): User
 function phaseFourHod(Location $location): User
 {
     $hod = User::factory()->create([
-        'role' => 'HOD',
+        'role' => 'USER',
         'is_active' => true,
     ]);
 
@@ -139,7 +139,7 @@ function phaseFourPayload(User $hod): array
     return [
         'pb_number' => 'PB-004',
         'location_id' => phaseFourLocation()->id,
-        'selected_hod_id' => $hod->id,
+        'selected_user_id' => $hod->id,
         'specification_matches_po' => true,
         'notes' => null,
         'delivery_note_photo' => UploadedFile::fake()->image('sj.jpg'),
@@ -177,7 +177,7 @@ it('creates inspection and draft round when warehouse saves the first checklist'
     expect(GoodsReceiptInspection::query()->count())->toBe(1)
         ->and($round->round_status)->toBe(RoundStatus::Draft)
         ->and($round->round_number)->toBe(1)
-        ->and($round->selected_hod_id)->toBe($hod->id)
+        ->and($round->selected_user_id)->toBe($hod->id)
         ->and($round->inspection->accurate_raw_json['number'])->toBe('PB-004')
         ->and($round->items)->toHaveCount(1)
         ->and($round->items[0]->item_name)->toBe('Travo BHL250L')
@@ -228,7 +228,7 @@ it('creates a draft round only for checked arrived items', function () {
         ->post(route('warehouse.rounds.store'), [
             'pb_number' => 'PB-004-TWO',
             'location_id' => $location->id,
-            'selected_hod_id' => $hod->id,
+            'selected_user_id' => $hod->id,
             'specification_matches_po' => true,
             'notes' => null,
             'delivery_note_photo' => UploadedFile::fake()->image('sj.jpg'),
@@ -279,7 +279,7 @@ it('submits a complete draft round to HoD and locks further edits', function () 
 
     $round->refresh();
 
-    expect($round->round_status)->toBe(RoundStatus::WaitingHodSignature)
+    expect($round->round_status)->toBe(RoundStatus::WaitingHeadWarehouseSignature)
         ->and($round->submitted_at)->not->toBeNull();
 
     $this->actingAs($warehouse)
@@ -335,8 +335,8 @@ it('shows warehouse active rounds for accessible locations only', function () {
         'inspection_id' => $inspection->id,
         'round_number' => 1,
         'created_by' => $warehouse->id,
-        'selected_hod_id' => $hod->id,
-        'round_status' => RoundStatus::WaitingHodSignature,
+        'selected_user_id' => $hod->id,
+        'round_status' => RoundStatus::WaitingHeadWarehouseSignature,
         'specification_matches_po' => true,
         'submitted_at' => now(),
     ]);
@@ -369,7 +369,7 @@ it('shows warehouse active rounds for accessible locations only', function () {
             ->has('active_rounds', 1)
             ->where('active_rounds.0.id', $visibleRound->id)
             ->where('active_rounds.0.pb_number', 'PB-VISIBLE')
-            ->where('active_rounds.0.status', 'WAITING_HOD_SIGNATURE')
+            ->where('active_rounds.0.status', 'WAITING_HEAD_WAREHOUSE_SIGNATURE')
         );
 });
 
@@ -396,13 +396,13 @@ it('shows signed partial rounds as partial and lets warehouse continue with a ne
         'inspection_id' => $inspection->id,
         'round_number' => 1,
         'created_by' => $warehouse->id,
-        'selected_hod_id' => $hod->id,
+        'selected_user_id' => $hod->id,
         'round_status' => RoundStatus::Signed,
         'completion_result' => 'PARTIAL',
         'specification_matches_po' => true,
         'submitted_at' => now(),
-        'hod_signed_by' => $hod->id,
-        'hod_signed_at' => now(),
+        'user_signed_by' => $hod->id,
+        'user_signed_at' => now(),
         'head_warehouse_signed_at' => now(),
     ]);
 
@@ -448,13 +448,13 @@ it('shows remaining quantity when warehouse continues a partial PB', function ()
         'inspection_id' => $inspection->id,
         'round_number' => 1,
         'created_by' => $warehouse->id,
-        'selected_hod_id' => $hod->id,
+        'selected_user_id' => $hod->id,
         'round_status' => RoundStatus::Signed,
         'completion_result' => 'PARTIAL',
         'specification_matches_po' => true,
         'submitted_at' => now(),
-        'hod_signed_by' => $hod->id,
-        'hod_signed_at' => now(),
+        'user_signed_by' => $hod->id,
+        'user_signed_at' => now(),
         'head_warehouse_signed_at' => now(),
     ]);
 
@@ -520,13 +520,13 @@ it('shows one warehouse history row per PB and hides continue action when PB is 
         'inspection_id' => $inspection->id,
         'round_number' => 1,
         'created_by' => $warehouse->id,
-        'selected_hod_id' => $hod->id,
+        'selected_user_id' => $hod->id,
         'round_status' => RoundStatus::Signed,
         'completion_result' => 'PARTIAL',
         'specification_matches_po' => true,
         'submitted_at' => now()->subDay(),
-        'hod_signed_by' => $hod->id,
-        'hod_signed_at' => now()->subDay(),
+        'user_signed_by' => $hod->id,
+        'user_signed_at' => now()->subDay(),
         'head_warehouse_signed_at' => now()->subDay(),
     ]);
 
@@ -534,13 +534,13 @@ it('shows one warehouse history row per PB and hides continue action when PB is 
         'inspection_id' => $inspection->id,
         'round_number' => 2,
         'created_by' => $warehouse->id,
-        'selected_hod_id' => $hod->id,
+        'selected_user_id' => $hod->id,
         'round_status' => RoundStatus::Signed,
         'completion_result' => 'COMPLETE',
         'specification_matches_po' => true,
         'submitted_at' => now(),
-        'hod_signed_by' => $hod->id,
-        'hod_signed_at' => now(),
+        'user_signed_by' => $hod->id,
+        'user_signed_at' => now(),
         'head_warehouse_signed_at' => now(),
     ]);
 
@@ -572,7 +572,7 @@ it('keeps validation errors on the PB result page when draft form is incomplete'
         ->post(route('warehouse.rounds.store'), [
             'pb_number' => 'PB-004',
             'location_id' => $location->id,
-            'selected_hod_id' => $hod->id,
+            'selected_user_id' => $hod->id,
             'specification_matches_po' => true,
             'items' => [
                 [

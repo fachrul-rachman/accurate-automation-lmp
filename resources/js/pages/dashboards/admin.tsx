@@ -12,19 +12,30 @@ export default function AdminDashboard({ user_summary }: Props) {
     return (
         <>
             <Head title="Dashboard Admin" />
-            <AdminShell current="dashboard" title="Dashboard" userSummary={user_summary}>
+            <AdminShell
+                current="dashboard"
+                title="Dashboard"
+                userSummary={user_summary}
+            >
                 <div className="mt-5 grid gap-4 md:grid-cols-3">
                     <section className="rounded-lg border border-slate-200 bg-white p-5">
                         <h2 className="font-semibold">Users</h2>
-                        <p className="mt-2 text-sm text-slate-600">Kelola akun, role, status aktif, dan lokasi user.</p>
+                        <p className="mt-2 text-sm text-slate-600">
+                            Kelola akun, role, status aktif, dan lokasi user.
+                        </p>
                     </section>
                     <section className="rounded-lg border border-slate-200 bg-white p-5">
                         <h2 className="font-semibold">Locations</h2>
-                        <p className="mt-2 text-sm text-slate-600">Kelola lokasi warehouse untuk workflow penerimaan barang.</p>
+                        <p className="mt-2 text-sm text-slate-600">
+                            Kelola lokasi warehouse untuk workflow penerimaan
+                            barang.
+                        </p>
                     </section>
                     <section className="rounded-lg border border-slate-200 bg-white p-5">
                         <h2 className="font-semibold">Monitoring</h2>
-                        <p className="mt-2 text-sm text-slate-600">Monitoring Penerimaan Barang.</p>
+                        <p className="mt-2 text-sm text-slate-600">
+                            Monitoring Penerimaan Barang.
+                        </p>
                     </section>
                 </div>
             </AdminShell>

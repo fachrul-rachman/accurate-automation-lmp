@@ -29,7 +29,7 @@ function phaseEightInspection(string $pbNumber, GoodsReceiptInspectionStatus $st
     $location = Location::factory()->create(['name' => 'Karawang']);
     $warehouse = phaseEightUser('WAREHOUSE');
     $warehouse->locations()->sync([$location->id]);
-    $hod = phaseEightUser('HOD');
+    $hod = phaseEightUser('USER');
 
     $inspection = GoodsReceiptInspection::query()->create([
         'location_id' => $location->id,
@@ -48,13 +48,13 @@ function phaseEightInspection(string $pbNumber, GoodsReceiptInspectionStatus $st
         'inspection_id' => $inspection->id,
         'round_number' => 1,
         'created_by' => $warehouse->id,
-        'selected_hod_id' => $hod->id,
-        'round_status' => $status === GoodsReceiptInspectionStatus::OpenPartial ? RoundStatus::WaitingHodSignature : RoundStatus::Signed,
+        'selected_user_id' => $hod->id,
+        'round_status' => $status === GoodsReceiptInspectionStatus::OpenPartial ? RoundStatus::WaitingHeadWarehouseSignature : RoundStatus::Signed,
         'completion_result' => $status === GoodsReceiptInspectionStatus::OpenPartial ? null : 'COMPLETE',
         'specification_matches_po' => true,
         'submitted_at' => now(),
-        'hod_signed_by' => $status === GoodsReceiptInspectionStatus::OpenPartial ? null : $hod->id,
-        'hod_signed_at' => $status === GoodsReceiptInspectionStatus::OpenPartial ? null : now(),
+        'user_signed_by' => $status === GoodsReceiptInspectionStatus::OpenPartial ? null : $hod->id,
+        'user_signed_at' => $status === GoodsReceiptInspectionStatus::OpenPartial ? null : now(),
         'head_warehouse_signed_by' => $status === GoodsReceiptInspectionStatus::OpenPartial ? null : phaseEightUser('HEAD_WAREHOUSE')->id,
         'head_warehouse_signed_at' => $status === GoodsReceiptInspectionStatus::OpenPartial ? null : now(),
     ]);
@@ -150,7 +150,7 @@ it('writes audit logs for completion PDF generation and admin PDF download', fun
     $location = Location::factory()->create(['name' => 'Karawang']);
     $warehouse = phaseEightUser('WAREHOUSE');
     $warehouse->locations()->sync([$location->id]);
-    $hod = phaseEightUser('HOD');
+    $hod = phaseEightUser('USER');
     $headWarehouse = phaseEightUser('HEAD_WAREHOUSE');
 
     $inspection = GoodsReceiptInspection::query()->create([
@@ -170,12 +170,12 @@ it('writes audit logs for completion PDF generation and admin PDF download', fun
         'inspection_id' => $inspection->id,
         'round_number' => 1,
         'created_by' => $warehouse->id,
-        'selected_hod_id' => $hod->id,
-        'round_status' => RoundStatus::WaitingHeadWarehouseSignature,
+        'selected_user_id' => $hod->id,
+        'round_status' => RoundStatus::WaitingUserSignature,
         'specification_matches_po' => true,
         'submitted_at' => now(),
-        'hod_signed_by' => $hod->id,
-        'hod_signed_at' => now(),
+        'head_warehouse_signed_by' => $headWarehouse->id,
+        'head_warehouse_signed_at' => now(),
     ]);
 
     GoodsReceiptRoundItem::query()->create([
@@ -193,7 +193,7 @@ it('writes audit logs for completion PDF generation and admin PDF download', fun
         'damaged_qty' => 0,
     ]);
 
-    $this->actingAs($headWarehouse)->post(route('head-warehouse.rounds.sign', $round));
+    $this->actingAs($hod)->post(route('user.rounds.sign', $round));
 
     $pdf = PdfExport::query()->where('inspection_id', $inspection->id)->firstOrFail();
 

@@ -85,7 +85,8 @@ export default function UserDashboard({
 
                         {pending_rounds.length === 0 ? (
                             <p className="mt-5 rounded-md border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">
-                                Belum ada Penerimaan Barang yang menunggu tindakan.
+                                Belum ada Penerimaan Barang yang menunggu
+                                tindakan.
                             </p>
                         ) : (
                             <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
@@ -161,7 +162,8 @@ export default function UserDashboard({
                                     Riwayat
                                 </h2>
                                 <p className="mt-1 text-sm text-slate-500">
-                                    Riwayat Round Penerimaan Barang yang Anda proses.
+                                    Riwayat Round Penerimaan Barang yang Anda
+                                    proses.
                                 </p>
                             </div>
                             <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
@@ -414,7 +416,11 @@ function UserSidebar({
                 )}
             </div>
             <nav className="flex-1 space-y-1 p-3">
-                {open && <p className="px-3 pb-2 text-xs font-semibold uppercase text-slate-500">Round Penerimaan Barang</p>}
+                {open && (
+                    <p className="px-3 pb-2 text-xs font-semibold text-slate-500 uppercase">
+                        Round Penerimaan Barang
+                    </p>
+                )}
                 {navItems.map((item) => {
                     const Icon = item.icon;
                     const active = activeView === item.key;

@@ -66,7 +66,7 @@ it('allows admin to create and update users', function () {
         ->put(route('admin.users.update', $user), [
             'name' => 'Inactive HoD',
             'email' => 'hod@example.test',
-            'role' => 'HOD',
+            'role' => 'USER',
             'location_ids' => [$locations[2]->id],
             'is_active' => false,
         ])
@@ -76,7 +76,7 @@ it('allows admin to create and update users', function () {
 
     expect($user->name)->toBe('Inactive HoD')
         ->and($user->email)->toBe('hod@example.test')
-        ->and($user->role->value)->toBe('HOD')
+        ->and($user->role->value)->toBe('USER')
         ->and($user->locations()->pluck('locations.id')->all())->toBe([$locations[2]->id])
         ->and($user->is_active)->toBeFalse();
 });
@@ -110,7 +110,7 @@ it('rejects incomplete email domains when admin manages users', function () {
             'name' => 'HoD Karawang',
             'email' => 'hod@karawang',
             'password' => 'password',
-            'role' => 'HOD',
+            'role' => 'USER',
             'location_ids' => [],
             'is_active' => true,
         ])
@@ -158,7 +158,7 @@ it('uses hod user location as the MVP hod mapping', function () {
             'name' => 'HoD Jakarta',
             'email' => 'hod-jakarta@example.test',
             'password' => 'password',
-            'role' => 'HOD',
+            'role' => 'USER',
             'location_ids' => [$locations[0]->id, $locations[1]->id],
             'is_active' => true,
         ])
@@ -166,7 +166,7 @@ it('uses hod user location as the MVP hod mapping', function () {
 
     $hod = User::query()->where('email', 'hod-jakarta@example.test')->firstOrFail();
 
-    expect($hod->role->value)->toBe('HOD')
+    expect($hod->role->value)->toBe('USER')
         ->and($hod->locations()->pluck('locations.id')->all())->toBe([$locations[0]->id, $locations[1]->id]);
 });
 

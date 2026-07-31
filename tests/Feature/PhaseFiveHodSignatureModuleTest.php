@@ -37,7 +37,7 @@ function phaseFiveUser(string $role, ?Location $location = null): User
     return $user;
 }
 
-function phaseFiveRound(Location $location, User $warehouse, User $hod, string $pbNumber, RoundStatus $status = RoundStatus::WaitingHodSignature): GoodsReceiptRound
+function phaseFiveRound(Location $location, User $warehouse, User $hod, string $pbNumber, RoundStatus $status = RoundStatus::WaitingUserSignature): GoodsReceiptRound
 {
     $inspection = GoodsReceiptInspection::query()->create([
         'location_id' => $location->id,
@@ -56,7 +56,7 @@ function phaseFiveRound(Location $location, User $warehouse, User $hod, string $
         'inspection_id' => $inspection->id,
         'round_number' => 1,
         'created_by' => $warehouse->id,
-        'selected_hod_id' => $hod->id,
+        'selected_user_id' => $hod->id,
         'round_status' => $status,
         'specification_matches_po' => true,
         'submitted_at' => now(),
@@ -106,8 +106,8 @@ function phaseFivePartialReasonRound(Location $location, User $warehouse, User $
         'inspection_id' => $inspection->id,
         'round_number' => 1,
         'created_by' => $warehouse->id,
-        'selected_hod_id' => $hod->id,
-        'round_status' => RoundStatus::WaitingHodSignature,
+        'selected_user_id' => $hod->id,
+        'round_status' => RoundStatus::WaitingUserSignature,
         'specification_matches_po' => true,
         'submitted_at' => now(),
     ]);
@@ -148,15 +148,15 @@ function phaseFivePartialReasonRound(Location $location, User $warehouse, User $
 it('shows HoD only rounds assigned to them', function () {
     $location = phaseFiveLocation();
     $warehouse = phaseFiveUser('WAREHOUSE', $location);
-    $hod = phaseFiveUser('HOD', $location);
-    $otherHod = phaseFiveUser('HOD', $location);
+    $hod = phaseFiveUser('USER', $location);
+    $otherHod = phaseFiveUser('USER', $location);
     $visibleRound = phaseFiveRound($location, $warehouse, $hod, 'PB-HOD-1');
     phaseFiveRound($location, $warehouse, $otherHod, 'PB-HOD-2');
 
     $this->actingAs($hod)
-        ->get(route('dashboard.hod'))
+        ->get(route('dashboard.user'))
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('dashboards/hod')
+            ->component('dashboards/user')
             ->has('pending_rounds', 1)
             ->where('pending_rounds.0.id', $visibleRound->id)
             ->where('pending_rounds.0.pb_number', 'PB-HOD-1')
@@ -166,14 +166,14 @@ it('shows HoD only rounds assigned to them', function () {
 it('shows HoD pending and history counts separately', function () {
     $location = phaseFiveLocation();
     $warehouse = phaseFiveUser('WAREHOUSE', $location);
-    $hod = phaseFiveUser('HOD', $location);
+    $hod = phaseFiveUser('USER', $location);
     phaseFiveRound($location, $warehouse, $hod, 'PB-HOD-PENDING');
-    phaseFiveRound($location, $warehouse, $hod, 'PB-HOD-HISTORY', RoundStatus::WaitingHeadWarehouseSignature);
+    phaseFiveRound($location, $warehouse, $hod, 'PB-HOD-HISTORY', RoundStatus::NeedsRevision);
 
     $this->actingAs($hod)
-        ->get(route('dashboard.hod'))
+        ->get(route('dashboard.user'))
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('dashboards/hod')
+            ->component('dashboards/user')
             ->has('pending_rounds', 1)
             ->has('history_rounds', 1)
             ->where('pending_round_count', 1)
@@ -185,38 +185,38 @@ it('shows HoD pending and history counts separately', function () {
 it('lets assigned HoD view and sign a waiting round', function () {
     $location = phaseFiveLocation();
     $warehouse = phaseFiveUser('WAREHOUSE', $location);
-    $hod = phaseFiveUser('HOD', $location);
+    $hod = phaseFiveUser('USER', $location);
     $round = phaseFiveRound($location, $warehouse, $hod, 'PB-HOD-SIGN');
 
     $this->actingAs($hod)
-        ->get(route('hod.rounds.show', $round))
+        ->get(route('user.rounds.show', $round))
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('hod/rounds/show')
+            ->component('user/rounds/show')
             ->where('round.id', $round->id)
             ->where('round.can_sign', true)
         );
 
     $this->actingAs($hod)
-        ->post(route('hod.rounds.sign', $round))
-        ->assertRedirect(route('hod.rounds.show', $round));
+        ->post(route('user.rounds.sign', $round))
+        ->assertRedirect(route('user.rounds.show', $round));
 
     $round->refresh();
 
-    expect($round->round_status)->toBe(RoundStatus::WaitingHeadWarehouseSignature)
-        ->and($round->hod_signed_by)->toBe($hod->id)
-        ->and($round->hod_signed_at)->not->toBeNull();
+    expect($round->round_status)->toBe(RoundStatus::Signed)
+        ->and($round->user_signed_by)->toBe($hod->id)
+        ->and($round->user_signed_at)->not->toBeNull();
 });
 
 it('shows partial reasons before User signs a round', function () {
     $location = phaseFiveLocation();
     $warehouse = phaseFiveUser('WAREHOUSE', $location);
-    $hod = phaseFiveUser('HOD', $location);
+    $hod = phaseFiveUser('USER', $location);
     $round = phaseFivePartialReasonRound($location, $warehouse, $hod);
 
     $this->actingAs($hod)
-        ->get(route('hod.rounds.show', $round))
+        ->get(route('user.rounds.show', $round))
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('hod/rounds/show')
+            ->component('user/rounds/show')
             ->where('round.partial_reasons.0', 'Ada item yang belum datang.')
             ->where('round.partial_reasons.1', 'Ada quantity item yang belum lengkap.')
             ->where('round.partial_reasons.2', 'Ada item rusak.')
@@ -229,7 +229,7 @@ it('lets assigned HoD view uploaded round and item photos', function () {
     Storage::fake('public');
     $location = phaseFiveLocation();
     $warehouse = phaseFiveUser('WAREHOUSE', $location);
-    $hod = phaseFiveUser('HOD', $location);
+    $hod = phaseFiveUser('USER', $location);
     $round = phaseFiveRound($location, $warehouse, $hod, 'PB-HOD-PHOTO');
     $item = GoodsReceiptRoundItem::query()->where('round_id', $round->id)->firstOrFail();
 
@@ -255,9 +255,9 @@ it('lets assigned HoD view uploaded round and item photos', function () {
     ]);
 
     $this->actingAs($hod)
-        ->get(route('hod.rounds.show', $round))
+        ->get(route('user.rounds.show', $round))
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('hod/rounds/show')
+            ->component('user/rounds/show')
             ->has('round.attachments', 1)
             ->where('round.attachments.0.url', route('files.round-attachments.show', $attachment))
             ->has('round.items.0.photos', 1)
@@ -276,20 +276,20 @@ it('lets assigned HoD view uploaded round and item photos', function () {
 it('blocks HoD from signing unrelated or non waiting rounds', function () {
     $location = phaseFiveLocation();
     $warehouse = phaseFiveUser('WAREHOUSE', $location);
-    $hod = phaseFiveUser('HOD', $location);
-    $otherHod = phaseFiveUser('HOD', $location);
+    $hod = phaseFiveUser('USER', $location);
+    $otherHod = phaseFiveUser('USER', $location);
     $unrelatedRound = phaseFiveRound($location, $warehouse, $otherHod, 'PB-HOD-OTHER');
-    $signedRound = phaseFiveRound($location, $warehouse, $hod, 'PB-HOD-DONE', RoundStatus::WaitingHeadWarehouseSignature);
+    $signedRound = phaseFiveRound($location, $warehouse, $hod, 'PB-HOD-DONE', RoundStatus::Signed);
 
     $this->actingAs($hod)
-        ->get(route('hod.rounds.show', $unrelatedRound))
+        ->get(route('user.rounds.show', $unrelatedRound))
         ->assertForbidden();
 
     $this->actingAs($hod)
-        ->post(route('hod.rounds.sign', $unrelatedRound))
+        ->post(route('user.rounds.sign', $unrelatedRound))
         ->assertForbidden();
 
     $this->actingAs($hod)
-        ->post(route('hod.rounds.sign', $signedRound))
+        ->post(route('user.rounds.sign', $signedRound))
         ->assertSessionHasErrors('round');
 });
