@@ -25,6 +25,7 @@ type Round = {
     completion_result: string | null;
     specification_matches_po: boolean;
     notes: string | null;
+    delivery_note_number: string | null;
     submitted_at: string | null;
     inspection: {
         pb_number: string;
@@ -137,6 +138,10 @@ export default function WarehouseRoundShow({ round }: Props) {
                                 label="Submitted At"
                                 value={round.submitted_at ?? '-'}
                             />
+                            <Info
+                                label="Nomor Surat Jalan"
+                                value={round.delivery_note_number ?? '-'}
+                            />
                         </dl>
                         {round.notes && (
                             <p className="mt-4 text-sm text-slate-700">
@@ -231,7 +236,7 @@ export default function WarehouseRoundShow({ round }: Props) {
                                 className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-70"
                             >
                                 <Send className="h-4 w-4" />
-                                Submit ke User
+                                Submit ke Head Warehouse
                             </button>
                         </form>
                     )}

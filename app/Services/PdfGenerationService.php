@@ -26,15 +26,7 @@ final class PdfGenerationService
             return $existing;
         }
 
-        $inspection->load([
-            'location',
-            'rounds.items.photos',
-            'rounds.attachments',
-            'rounds.creator',
-            'rounds.selectedUser',
-            'rounds.userSigner',
-            'rounds.headWarehouseSigner',
-        ]);
+        $this->loadPdfRelations($inspection);
 
         $pdfBinary = $this->renderPdf($inspection);
         $fileName = 'Penerimaan-Barang-'.$this->safePathPart($inspection->pb_number).'-final.pdf';
@@ -62,6 +54,13 @@ final class PdfGenerationService
         return $pdfExport;
     }
 
+    public function preview(GoodsReceiptInspection $inspection): string
+    {
+        $this->loadPdfRelations($inspection);
+
+        return $this->renderPdf($inspection);
+    }
+
     private function renderPdf(GoodsReceiptInspection $inspection): string
     {
         $options = new Options;
@@ -74,6 +73,10 @@ final class PdfGenerationService
             'generatedAt' => DateFormatter::wib(now()),
             'itemSummary' => $this->itemSummary($inspection),
             'finalRound' => $inspection->rounds->last(),
+            'company' => $this->companyDetails($inspection),
+            'checks' => $this->checks($inspection),
+            'logoDataUri' => $this->logoDataUri(),
+            'formatQuantity' => fn ($quantity): string => $this->formatQuantity((float) $quantity),
             'photoDataUri' => fn (string $key, ?string $mimeType): ?string => $this->photoDataUri($key, $mimeType),
         ])->render());
         $dompdf->setPaper('a4');
@@ -83,7 +86,7 @@ final class PdfGenerationService
     }
 
     /**
-     * @return array<int, array{item_code: string|null, item_name: string, unit: string|null, required_qty: float, received_qty: float, damaged_qty: float, good_qty: float}>
+     * @return array<int, array{item_code: string|null, item_name: string, po_number: string|null, unit: string|null, required_qty: float, received_qty: float, damaged_qty: float, good_qty: float}>
      */
     private function itemSummary(GoodsReceiptInspection $inspection): array
     {
@@ -96,6 +99,7 @@ final class PdfGenerationService
                 $summary[$key] ??= [
                     'item_code' => $item->item_code,
                     'item_name' => $item->item_name,
+                    'po_number' => $item->po_number,
                     'unit' => $item->unit,
                     'required_qty' => 0.0,
                     'received_qty' => 0.0,
@@ -114,6 +118,88 @@ final class PdfGenerationService
         }
 
         return array_values($summary);
+    }
+
+    /**
+     * @return array{name: string, address: array<int, string>, phone: string}
+     */
+    private function companyDetails(GoodsReceiptInspection $inspection): array
+    {
+        if (Str::contains(Str::lower($inspection->location?->name ?? ''), 'karawang')) {
+            return [
+                'name' => 'PT. ALAM HIJAU LESTARI',
+                'address' => [
+                    'Jl. Kuta Tandingan, KIIC',
+                    'Desa Margakaya, Kec. Teluk Jambe Timur,',
+                    'Karawang Barat, Jawa Barat 41361',
+                ],
+                'phone' => '0267-8605555 / 0821 6333 2227',
+            ];
+        }
+
+        return [
+            'name' => 'PT. KARYAPRIMA UTAMASUKSES',
+            'address' => [
+                'Desa Ranca Buaya Kecamatan Jambe',
+                'Kabupaten Tangerang',
+                'Provinsi Banten, 15720',
+            ],
+            'phone' => '+62-21 6230.5858',
+        ];
+    }
+
+    /**
+     * @return array{specification: bool, quantity: bool, delivery_note: bool}
+     */
+    private function checks(GoodsReceiptInspection $inspection): array
+    {
+        $itemSummary = $this->itemSummary($inspection);
+
+        return [
+            'specification' => $inspection->rounds->every(
+                fn ($round): bool => $round->specification_matches_po
+            ),
+            'quantity' => collect($itemSummary)->every(
+                fn (array $item): bool => abs($item['received_qty'] - $item['required_qty']) < 0.0001
+            ),
+            'delivery_note' => $inspection->rounds->every(
+                fn ($round): bool => $round->delivery_note_number !== null
+                    && $round->attachments->contains(
+                        fn ($attachment): bool => $attachment->attachment_type->value === 'DELIVERY_NOTE'
+                    )
+            ),
+        ];
+    }
+
+    private function logoDataUri(): ?string
+    {
+        $path = public_path('logo pdf.png');
+
+        if (! is_file($path)) {
+            return null;
+        }
+
+        $content = file_get_contents($path);
+
+        return $content === false ? null : 'data:image/png;base64,'.base64_encode($content);
+    }
+
+    private function formatQuantity(float $quantity): string
+    {
+        return rtrim(rtrim(number_format($quantity, 4, '.', ','), '0'), '.');
+    }
+
+    private function loadPdfRelations(GoodsReceiptInspection $inspection): void
+    {
+        $inspection->load([
+            'location',
+            'rounds.items.photos',
+            'rounds.attachments',
+            'rounds.creator',
+            'rounds.selectedUser',
+            'rounds.userSigner',
+            'rounds.headWarehouseSigner',
+        ]);
     }
 
     private function photoDataUri(string $key, ?string $mimeType): ?string

@@ -142,6 +142,7 @@ function phaseFourPayload(User $hod): array
         'selected_user_id' => $hod->id,
         'specification_matches_po' => true,
         'notes' => null,
+        'delivery_note_number' => 'SJ-004',
         'delivery_note_photo' => UploadedFile::fake()->image('sj.jpg'),
         'receiver_photo' => UploadedFile::fake()->image('receiver.jpg'),
         'items' => [
@@ -178,6 +179,7 @@ it('creates inspection and draft round when warehouse saves the first checklist'
         ->and($round->round_status)->toBe(RoundStatus::Draft)
         ->and($round->round_number)->toBe(1)
         ->and($round->selected_user_id)->toBe($hod->id)
+        ->and($round->delivery_note_number)->toBe('SJ-004')
         ->and($round->inspection->accurate_raw_json['number'])->toBe('PB-004')
         ->and($round->items)->toHaveCount(1)
         ->and($round->items[0]->item_name)->toBe('Travo BHL250L')
@@ -231,6 +233,7 @@ it('creates a draft round only for checked arrived items', function () {
             'selected_user_id' => $hod->id,
             'specification_matches_po' => true,
             'notes' => null,
+            'delivery_note_number' => 'SJ-004-TWO',
             'delivery_note_photo' => UploadedFile::fake()->image('sj.jpg'),
             'receiver_photo' => UploadedFile::fake()->image('receiver.jpg'),
             'items' => [
@@ -312,7 +315,7 @@ it('opens the active round when warehouse searches the same PB again', function 
     expect(GoodsReceiptRound::query()->count())->toBe(1);
 });
 
-it('shows warehouse active rounds for accessible locations only', function () {
+it('keeps accessible active rounds visible after an Accurate search error', function () {
     $location = phaseFourLocation();
     $otherLocation = Location::factory()->create(['name' => 'Tangerang']);
     $warehouse = phaseFourWarehouse($location);
@@ -370,6 +373,30 @@ it('shows warehouse active rounds for accessible locations only', function () {
             ->where('active_rounds.0.id', $visibleRound->id)
             ->where('active_rounds.0.pb_number', 'PB-VISIBLE')
             ->where('active_rounds.0.status', 'WAITING_HEAD_WAREHOUSE_SIGNATURE')
+        );
+
+    Config::set('services.accurate.api_token', 'test-token');
+    Config::set('services.accurate.signature_secret', 'test-secret');
+    Http::fake([
+        'https://zeus.accurate.id/accurate/api/receive-item/list.do*' => Http::response([
+            's' => true,
+            'd' => [],
+        ]),
+    ]);
+
+    $this->actingAs($warehouse)
+        ->followingRedirects()
+        ->get(route('warehouse.pb-search.result', [
+            'location_id' => $location->id,
+            'pb_number' => 'PB-MISSING',
+        ]))
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('dashboards/warehouse')
+            ->has('active_rounds', 1)
+            ->where('active_round_count', 1)
+            ->where('selected_location_id', $location->id)
+            ->where('pb_number', 'PB-MISSING')
+            ->where('errors.pb_number', 'Nomor Penerimaan Barang tidak ditemukan di Accurate.')
         );
 });
 
@@ -585,6 +612,7 @@ it('keeps validation errors on the PB result page when draft form is incomplete'
         ])
         ->assertRedirect($resultUrl)
         ->assertSessionHasErrors([
+            'delivery_note_number' => 'Nomor surat jalan wajib diisi.',
             'delivery_note_photo' => 'Foto surat jalan wajib diupload.',
             'receiver_photo' => 'Foto penerima wajib diupload.',
             'items.0.item_photo' => 'Foto item wajib diupload.',

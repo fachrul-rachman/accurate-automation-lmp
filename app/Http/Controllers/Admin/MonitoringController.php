@@ -194,6 +194,7 @@ final class MonitoringController extends Controller
             'completion_result' => $round->completion_result,
             'specification_matches_po' => $round->specification_matches_po,
             'notes' => $round->notes,
+            'delivery_note_number' => $round->delivery_note_number,
             'created_by' => $round->creator?->name,
             'selected_user' => $round->selectedUser?->name,
             'user_signed_by' => $round->userSigner?->name,

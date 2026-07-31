@@ -7,12 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Warehouse\SearchPbRequest;
 use App\Models\GoodsReceiptInspection;
 use App\Models\GoodsReceiptRound;
-use App\Models\Location;
 use App\Services\AccurateReceiveItemService;
-use App\Support\UserDisplay;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
@@ -71,17 +68,13 @@ final class PbSearchController extends Controller
         try {
             $result = $this->accurateReceiveItems->findReceiveItemDetail($location, $pbNumber);
         } catch (RuntimeException $exception) {
-            $locations = $this->locationModels($request);
-
-            return Inertia::render('dashboards/warehouse', [
-                'user_summary' => UserDisplay::summary($user, $locations),
-                'locations' => $this->locationOptions($locations),
-                'active_rounds' => [],
-                'active_round_count' => 0,
-                'selected_location_id' => $location->id,
-                'pb_number' => $pbNumber,
-                'errors' => ['pb_number' => $exception->getMessage()],
-            ]);
+            return redirect()
+                ->route('dashboard.warehouse')
+                ->withErrors(['pb_number' => $exception->getMessage()])
+                ->withInput([
+                    'location_id' => $location->id,
+                    'pb_number' => $pbNumber,
+                ]);
         }
 
         return Inertia::render('warehouse/pb-search/result', [
@@ -101,32 +94,6 @@ final class PbSearchController extends Controller
                 ])
                 ->all(),
         ]);
-    }
-
-    /**
-     * @param  Collection<int, Location>  $locations
-     * @return array<int, array{id: int, name: string}>
-     */
-    private function locationOptions(Collection $locations): array
-    {
-        return $locations
-            ->map(fn ($location): array => [
-                'id' => $location->id,
-                'name' => $location->name,
-            ])
-            ->all();
-    }
-
-    /**
-     * @return Collection<int, Location>
-     */
-    private function locationModels(Request $request): Collection
-    {
-        return $request->user()
-            ->locations()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['locations.id', 'locations.name']);
     }
 
     private function activeRoundForPb(string $pbNumber, Request $request): ?GoodsReceiptRound

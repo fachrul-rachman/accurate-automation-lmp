@@ -47,6 +47,7 @@ final class GoodsReceiptRoundService
                 'round_status' => RoundStatus::Draft,
                 'specification_matches_po' => (bool) $data['specification_matches_po'],
                 'notes' => $data['notes'] ?? null,
+                'delivery_note_number' => $data['delivery_note_number'],
             ]);
 
             $this->storeRoundContents($round, $detail, $data);
@@ -90,6 +91,7 @@ final class GoodsReceiptRoundService
                 'selected_user_id' => $data['selected_user_id'],
                 'specification_matches_po' => (bool) $data['specification_matches_po'],
                 'notes' => $data['notes'] ?? null,
+                'delivery_note_number' => $data['delivery_note_number'],
             ]);
             $this->storeRoundContents($round, $detail, $data);
 
@@ -120,6 +122,8 @@ final class GoodsReceiptRoundService
             'rejected_by' => null,
             'rejected_at' => null,
             'rejection_reason' => null,
+            'head_warehouse_notes' => null,
+            'user_notes' => null,
         ]);
 
         $round->loadMissing('inspection');
@@ -133,17 +137,18 @@ final class GoodsReceiptRoundService
         return $round->refresh();
     }
 
-    public function signByHeadWarehouse(GoodsReceiptRound $round, User $headWarehouse): GoodsReceiptRound
+    public function signByHeadWarehouse(GoodsReceiptRound $round, User $headWarehouse, ?string $notes = null): GoodsReceiptRound
     {
         if ($round->round_status !== RoundStatus::WaitingHeadWarehouseSignature) {
             throw new RuntimeException('Round ini belum siap ditandatangani Head Warehouse.');
         }
 
-        return DB::transaction(function () use ($round, $headWarehouse): GoodsReceiptRound {
+        return DB::transaction(function () use ($round, $headWarehouse, $notes): GoodsReceiptRound {
             $round->update([
                 'round_status' => RoundStatus::WaitingUserSignature,
                 'head_warehouse_signed_by' => $headWarehouse->id,
                 'head_warehouse_signed_at' => now(),
+                'head_warehouse_notes' => $notes,
             ]);
 
             $round->loadMissing('inspection');
@@ -164,7 +169,7 @@ final class GoodsReceiptRoundService
             throw new RuntimeException('Round ini belum siap diperiksa Head Warehouse.');
         }
 
-        return $this->reject($round, $headWarehouse, $reason, 'HEAD_WAREHOUSE_REJECTED');
+        return $this->reject($round, $headWarehouse, $reason, 'head_warehouse_notes', 'HEAD_WAREHOUSE_REJECTED');
     }
 
     public function rejectByUser(GoodsReceiptRound $round, User $user, string $reason): GoodsReceiptRound
@@ -173,20 +178,21 @@ final class GoodsReceiptRoundService
             throw new RuntimeException('Round ini belum siap diperiksa User.');
         }
 
-        return $this->reject($round, $user, $reason, 'USER_REJECTED');
+        return $this->reject($round, $user, $reason, 'user_notes', 'USER_REJECTED');
     }
 
-    public function signByUser(GoodsReceiptRound $round, User $user): GoodsReceiptRound
+    public function signByUser(GoodsReceiptRound $round, User $user, ?string $notes = null): GoodsReceiptRound
     {
         if ($round->round_status !== RoundStatus::WaitingUserSignature) {
             throw new RuntimeException('Round ini belum siap ditandatangani User.');
         }
 
-        return DB::transaction(function () use ($round, $user): GoodsReceiptRound {
+        return DB::transaction(function () use ($round, $user, $notes): GoodsReceiptRound {
             $round->update([
                 'round_status' => RoundStatus::Signed,
                 'user_signed_by' => $user->id,
                 'user_signed_at' => now(),
+                'user_notes' => $notes,
             ]);
 
             $round->loadMissing('inspection.rounds.items');
@@ -239,9 +245,9 @@ final class GoodsReceiptRoundService
         });
     }
 
-    private function reject(GoodsReceiptRound $round, User $actor, string $reason, string $event): GoodsReceiptRound
+    private function reject(GoodsReceiptRound $round, User $actor, string $notes, string $notesColumn, string $event): GoodsReceiptRound
     {
-        return DB::transaction(function () use ($round, $actor, $reason, $event): GoodsReceiptRound {
+        return DB::transaction(function () use ($round, $actor, $notes, $notesColumn, $event): GoodsReceiptRound {
             $round->update([
                 'round_status' => RoundStatus::NeedsRevision,
                 'head_warehouse_signed_by' => null,
@@ -250,7 +256,8 @@ final class GoodsReceiptRoundService
                 'user_signed_at' => null,
                 'rejected_by' => $actor->id,
                 'rejected_at' => now(),
-                'rejection_reason' => $reason,
+                'rejection_reason' => $notes,
+                $notesColumn => $notes,
             ]);
 
             $round->loadMissing('inspection');
@@ -259,7 +266,7 @@ final class GoodsReceiptRoundService
                 $actor,
                 $round,
                 "Round {$round->round_number} Penerimaan Barang {$round->inspection->pb_number} dikembalikan ke Warehouse.",
-                metadata: ['reason' => $reason],
+                metadata: ['notes' => $notes],
             );
 
             return $round->refresh();

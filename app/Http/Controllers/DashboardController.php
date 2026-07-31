@@ -83,6 +83,8 @@ final class DashboardController extends Controller
             'locations' => $locations,
             'active_rounds' => $activeRounds,
             'active_round_count' => count($activeRounds),
+            'selected_location_id' => old('location_id'),
+            'pb_number' => old('pb_number'),
         ]);
     }
 

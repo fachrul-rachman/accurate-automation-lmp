@@ -19,11 +19,14 @@ use Illuminate\Support\Carbon;
  * @property string|null $completion_result
  * @property bool $specification_matches_po
  * @property string|null $notes
+ * @property string|null $delivery_note_number
  * @property Carbon|null $submitted_at
  * @property int|null $user_signed_by
  * @property Carbon|null $user_signed_at
+ * @property string|null $user_notes
  * @property int|null $head_warehouse_signed_by
  * @property Carbon|null $head_warehouse_signed_at
+ * @property string|null $head_warehouse_notes
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property GoodsReceiptInspection $inspection
@@ -37,11 +40,14 @@ use Illuminate\Support\Carbon;
     'completion_result',
     'specification_matches_po',
     'notes',
+    'delivery_note_number',
     'submitted_at',
     'user_signed_by',
     'user_signed_at',
+    'user_notes',
     'head_warehouse_signed_by',
     'head_warehouse_signed_at',
+    'head_warehouse_notes',
     'rejected_by',
     'rejected_at',
     'rejection_reason',

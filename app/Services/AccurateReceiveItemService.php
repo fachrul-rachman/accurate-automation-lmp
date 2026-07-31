@@ -30,6 +30,12 @@ final class AccurateReceiveItemService
         $headers = $this->headers($location);
         $receiveItem = $this->searchReceiveItem($host, $headers, $normalizedPbNumber);
         $detail = $this->receiveItemDetail($host, $headers, (string) $receiveItem['id']);
+        $detailNumber = $this->stringValue($detail, 'number');
+
+        if ($detailNumber === null || trim($detailNumber) !== $normalizedPbNumber) {
+            throw new RuntimeException('Nomor Penerimaan Barang tidak ditemukan secara tepat di Accurate.');
+        }
+
         $items = $this->detailItems($detail);
 
         if ($items === []) {
@@ -70,19 +76,13 @@ final class AccurateReceiveItemService
             throw new RuntimeException('Nomor Penerimaan Barang tidak ditemukan di Accurate.');
         }
 
-        foreach ($rows as $row) {
-            if (is_array($row) && ($row['number'] ?? null) === $pbNumber) {
-                return $this->objectData($row, 'Nomor Penerimaan Barang tidak ditemukan di Accurate.');
-            }
-        }
-
         $firstRow = $rows[0] ?? null;
 
         if (! is_array($firstRow)) {
             throw new RuntimeException('Nomor Penerimaan Barang tidak ditemukan di Accurate.');
         }
 
-        throw new RuntimeException('Nomor Penerimaan Barang tidak ditemukan secara tepat di Accurate.');
+        return $this->objectData($firstRow, 'Nomor Penerimaan Barang tidak ditemukan di Accurate.');
     }
 
     /**

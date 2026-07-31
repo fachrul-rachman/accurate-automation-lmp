@@ -43,6 +43,7 @@ type Props = {
         selected_user_id: number;
         specification_matches_po: boolean;
         notes: string | null;
+        delivery_note_number: string | null;
         rejection_reason: string | null;
         items: Array<{
             accurate_detail_item_id: string | null;
@@ -72,6 +73,7 @@ export default function WarehousePbSearchResult({
             specification_matches_po:
                 editing_round?.specification_matches_po ?? true,
             notes: editing_round?.notes ?? '',
+            delivery_note_number: editing_round?.delivery_note_number ?? '',
             delivery_note_photo: null as File | null,
             receiver_photo: null as File | null,
             items: result.items.map((item) => {
@@ -271,7 +273,7 @@ export default function WarehousePbSearchResult({
                             <div className="mt-6 grid gap-4 md:grid-cols-2">
                                 <label className="block text-sm">
                                     <span className="font-medium text-slate-700">
-                                        User
+                                        User setelah Head Warehouse
                                     </span>
                                     <select
                                         value={data.selected_user_id}
@@ -314,6 +316,30 @@ export default function WarehousePbSearchResult({
                                 </label>
                                 <label className="block text-sm md:col-span-2">
                                     <span className="font-medium text-slate-700">
+                                        Nomor Surat Jalan
+                                    </span>
+                                    <input
+                                        type="text"
+                                        value={data.delivery_note_number}
+                                        onChange={(event) =>
+                                            setData(
+                                                'delivery_note_number',
+                                                event.target.value,
+                                            )
+                                        }
+                                        maxLength={100}
+                                        required
+                                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+                                    />
+                                    {showValidationErrors &&
+                                        errors.delivery_note_number && (
+                                            <span className="mt-1 block text-red-600">
+                                                {errors.delivery_note_number}
+                                            </span>
+                                        )}
+                                </label>
+                                <label className="block text-sm md:col-span-2">
+                                    <span className="font-medium text-slate-700">
                                         Notes
                                     </span>
                                     <textarea
@@ -353,7 +379,7 @@ export default function WarehousePbSearchResult({
                             <>
                                 {!itemsComplete && (
                                     <p className="mt-4 text-sm text-amber-700">
-                                        Centang barang yang datang, lalu
+                                        Centang barang yang diterima, lalu
                                         lengkapi quantity dan foto untuk item
                                         tersebut.
                                     </p>
@@ -363,7 +389,7 @@ export default function WarehousePbSearchResult({
                                         <thead className="bg-slate-100 text-slate-700">
                                             <tr>
                                                 <th className="px-4 py-3">
-                                                    Datang
+                                                    Diterima
                                                 </th>
                                                 <th className="px-4 py-3">
                                                     Kode Item
@@ -560,6 +586,10 @@ export default function WarehousePbSearchResult({
                                                         <input
                                                             type="number"
                                                             min="0"
+                                                            max={
+                                                                item.quantity ??
+                                                                undefined
+                                                            }
                                                             step="0.01"
                                                             value={
                                                                 data.items[
@@ -577,9 +607,12 @@ export default function WarehousePbSearchResult({
                                                                         index
                                                                     ],
                                                                     received_qty:
-                                                                        event
-                                                                            .target
-                                                                            .value,
+                                                                        clampQuantity(
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                            item.quantity,
+                                                                        ),
                                                                 };
                                                                 setData(
                                                                     'items',
@@ -818,6 +851,14 @@ export default function WarehousePbSearchResult({
             </main>
         </>
     );
+}
+
+function clampQuantity(value: string, maximum: number | null): string {
+    if (value === '') {
+        return '';
+    }
+
+    return String(Math.min(Math.max(Number(value), 0), maximum ?? Infinity));
 }
 
 function FileInput({

@@ -60,6 +60,7 @@ function phaseSevenRound(Location $location, User $warehouse, User $hod, string 
         'round_status' => RoundStatus::WaitingUserSignature,
         'specification_matches_po' => true,
         'notes' => 'Barang diterima baik.',
+        'delivery_note_number' => 'SJ-'.$pbNumber,
         'submitted_at' => now(),
         'head_warehouse_signed_by' => phaseSevenUser('HEAD_WAREHOUSE')->id,
         'head_warehouse_signed_at' => now(),
@@ -126,6 +127,23 @@ it('does not generate final PDF for partial PB', function () {
     expect($round->inspection->pb_status)->toBe(GoodsReceiptInspectionStatus::OpenPartial)
         ->and($round->inspection->pdf_status)->toBe(PdfStatus::NotReady)
         ->and(PdfExport::query()->where('inspection_id', $round->inspection_id)->exists())->toBeFalse();
+});
+
+it('generates a local PDF preview without creating a PDF export', function () {
+    Storage::fake('local');
+    Storage::fake('public');
+
+    $location = phaseSevenLocation();
+    $warehouse = phaseSevenUser('WAREHOUSE', $location);
+    $user = phaseSevenUser('USER', $location);
+    phaseSevenRound($location, $warehouse, $user, 'PB-PDF-PREVIEW');
+
+    $this->artisan('pdf:preview', ['pb_number' => 'PB-PDF-PREVIEW'])
+        ->assertSuccessful();
+
+    Storage::disk('local')->assertExists('pdf-preview.pdf');
+    expect(PdfExport::query()->count())->toBe(0)
+        ->and(Storage::disk('local')->get('pdf-preview.pdf'))->toStartWith('%PDF');
 });
 
 it('lets authorized users download generated final PDF', function () {

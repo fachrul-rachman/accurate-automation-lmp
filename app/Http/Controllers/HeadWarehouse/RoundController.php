@@ -38,9 +38,12 @@ final class RoundController extends Controller
                 'completion_result' => $round->completion_result,
                 'specification_matches_po' => $round->specification_matches_po,
                 'notes' => $round->notes,
+                'delivery_note_number' => $round->delivery_note_number,
                 'submitted_at' => DateFormatter::wib($round->submitted_at),
                 'head_warehouse_signed_at' => DateFormatter::wib($round->head_warehouse_signed_at),
+                'head_warehouse_notes' => $round->head_warehouse_notes,
                 'user_signed_at' => DateFormatter::wib($round->user_signed_at),
+                'user_notes' => $round->user_notes,
                 'rejection_reason' => $round->rejection_reason,
                 'inspection' => [
                     'pb_number' => $round->inspection->pb_number,
@@ -84,9 +87,10 @@ final class RoundController extends Controller
     public function sign(Request $request, GoodsReceiptRound $round): RedirectResponse
     {
         $this->authorizeHeadWarehouseAccess($request);
+        $notes = $request->validate(['notes' => ['nullable', 'string', 'max:1000']])['notes'] ?? null;
 
         try {
-            $this->rounds->signByHeadWarehouse($round, $request->user());
+            $this->rounds->signByHeadWarehouse($round, $request->user(), $notes);
         } catch (RuntimeException $exception) {
             return back()->withErrors(['round' => $exception->getMessage()]);
         }
@@ -97,10 +101,10 @@ final class RoundController extends Controller
     public function reject(Request $request, GoodsReceiptRound $round): RedirectResponse
     {
         $this->authorizeHeadWarehouseAccess($request);
-        $reason = $request->validate(['reason' => ['required', 'string', 'max:1000']])['reason'];
+        $notes = $request->validate(['notes' => ['required', 'string', 'max:1000']])['notes'];
 
         try {
-            $this->rounds->rejectByHeadWarehouse($round, $request->user(), $reason);
+            $this->rounds->rejectByHeadWarehouse($round, $request->user(), $notes);
         } catch (RuntimeException $exception) {
             return back()->withErrors(['round' => $exception->getMessage()]);
         }

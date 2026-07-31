@@ -25,6 +25,7 @@ type Round = {
     completion_result: string | null;
     specification_matches_po: boolean;
     notes: string | null;
+    delivery_note_number: string | null;
     created_by: string | null;
     selected_user: string | null;
     user_signed_by: string | null;
@@ -267,6 +268,10 @@ export default function AdminMonitoringShow({
                                 <Info
                                     label="Foto round"
                                     value={String(round.attachment_count)}
+                                />
+                                <Info
+                                    label="Nomor Surat Jalan"
+                                    value={round.delivery_note_number ?? '-'}
                                 />
                             </dl>
 

@@ -53,6 +53,7 @@ final class RoundController extends Controller
                 'completion_result' => $round->completion_result,
                 'specification_matches_po' => $round->specification_matches_po,
                 'notes' => $round->notes,
+                'delivery_note_number' => $round->delivery_note_number,
                 'submitted_at' => DateFormatter::wib($round->submitted_at),
                 'selected_user_id' => $round->selected_user_id,
                 'rejection_reason' => $round->rejection_reason,
@@ -127,6 +128,7 @@ final class RoundController extends Controller
                 'selected_user_id' => $round->selected_user_id,
                 'specification_matches_po' => $round->specification_matches_po,
                 'notes' => $round->notes,
+                'delivery_note_number' => $round->delivery_note_number,
                 'rejection_reason' => $round->rejection_reason,
                 'items' => $round->items->map(fn ($item): array => [
                     'accurate_detail_item_id' => $item->accurate_detail_item_id,

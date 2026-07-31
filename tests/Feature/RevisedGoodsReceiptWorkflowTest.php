@@ -105,11 +105,12 @@ it('routes a submitted round through Head Warehouse before User', function () {
     expect($round->refresh()->round_status)->toBe(RoundStatus::WaitingHeadWarehouseSignature);
 
     $this->actingAs($headWarehouse)
-        ->post(route('head-warehouse.rounds.sign', $round))
+        ->post(route('head-warehouse.rounds.sign', $round), ['notes' => 'Pemeriksaan Head Warehouse sesuai.'])
         ->assertRedirect();
 
     expect($round->refresh()->round_status)->toBe(RoundStatus::WaitingUserSignature)
-        ->and($round->head_warehouse_signed_by)->toBe($headWarehouse->id);
+        ->and($round->head_warehouse_signed_by)->toBe($headWarehouse->id)
+        ->and($round->head_warehouse_notes)->toBe('Pemeriksaan Head Warehouse sesuai.');
 });
 
 it('requires a reason when Head Warehouse rejects and returns the round to Warehouse', function () {
@@ -120,15 +121,16 @@ it('requires a reason when Head Warehouse rejects and returns the round to Wareh
     $round = revisedWorkflowRound($location, $warehouse, $user, RoundStatus::WaitingHeadWarehouseSignature, 'RCV-HEAD-REJECT');
 
     $this->actingAs($headWarehouse)
-        ->post(route('head-warehouse.rounds.reject', $round), ['reason' => ''])
-        ->assertSessionHasErrors('reason');
+        ->post(route('head-warehouse.rounds.reject', $round), ['notes' => ''])
+        ->assertSessionHasErrors('notes');
 
     $this->actingAs($headWarehouse)
-        ->post(route('head-warehouse.rounds.reject', $round), ['reason' => 'Foto surat jalan tidak jelas.'])
+        ->post(route('head-warehouse.rounds.reject', $round), ['notes' => 'Foto surat jalan tidak jelas.'])
         ->assertRedirect();
 
     expect($round->refresh()->round_status)->toBe(RoundStatus::NeedsRevision)
         ->and($round->rejection_reason)->toBe('Foto surat jalan tidak jelas.')
+        ->and($round->head_warehouse_notes)->toBe('Foto surat jalan tidak jelas.')
         ->and($round->rejected_by)->toBe($headWarehouse->id);
 });
 
@@ -144,13 +146,14 @@ it('cancels the Head Warehouse signature when User rejects', function () {
     ]);
 
     $this->actingAs($user)
-        ->post(route('user.rounds.reject', $round), ['reason' => 'Foto barang perlu diulang.'])
+        ->post(route('user.rounds.reject', $round), ['notes' => 'Foto barang perlu diulang.'])
         ->assertRedirect();
 
     expect($round->refresh()->round_status)->toBe(RoundStatus::NeedsRevision)
         ->and($round->head_warehouse_signed_by)->toBeNull()
         ->and($round->head_warehouse_signed_at)->toBeNull()
-        ->and($round->rejection_reason)->toBe('Foto barang perlu diulang.');
+        ->and($round->rejection_reason)->toBe('Foto barang perlu diulang.')
+        ->and($round->user_notes)->toBe('Foto barang perlu diulang.');
 });
 
 it('lets Admin remove a final goods receipt from operations', function () {

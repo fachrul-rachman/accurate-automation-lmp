@@ -40,17 +40,18 @@ function locationWithAccurateHost(string $name, string $host): Location
     ]);
 }
 
-function fakeLocationAccurateSuccess(string $host, string $pbNumber = 'PB-001'): void
+function fakeLocationAccurateSuccess(string $host, string $pbNumber = 'PB-001', bool $includeListNumber = true): void
 {
+    $listRow = ['id' => 16201];
+
+    if ($includeListNumber) {
+        $listRow['number'] = $pbNumber;
+    }
+
     Http::fake([
         "{$host}/accurate/api/receive-item/list.do*" => Http::response([
             's' => true,
-            'd' => [
-                [
-                    'id' => 16201,
-                    'number' => $pbNumber,
-                ],
-            ],
+            'd' => [$listRow],
         ]),
         "{$host}/accurate/api/receive-item/detail.do*" => Http::response([
             's' => true,
@@ -91,6 +92,17 @@ it('searches PB against the selected user location host without storing a snapsh
         && $request->hasHeader('Authorization', 'Bearer test-token')
         && $request->hasHeader('X-Api-Timestamp')
         && $request->hasHeader('X-Api-Signature'));
+});
+
+it('validates the PB number from Accurate detail when the list omits it', function () {
+    configureAccurateCredential();
+    $karawang = locationWithAccurateHost('Karawang', 'https://zeus.accurate.id');
+    fakeLocationAccurateSuccess('https://zeus.accurate.id', 'BPB.2025.12.00007', false);
+
+    $result = app(AccurateReceiveItemService::class)
+        ->findReceiveItemDetail($karawang, 'BPB.2025.12.00007');
+
+    expect($result['number'])->toBe('BPB.2025.12.00007');
 });
 
 it('uses location specific Accurate credentials for each location', function () {

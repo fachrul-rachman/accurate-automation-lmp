@@ -34,6 +34,7 @@ final class StoreRoundRequest extends FormRequest
             'selected_user_id' => ['required', 'integer', Rule::exists('users', 'id')],
             'specification_matches_po' => ['required', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'delivery_note_number' => ['required', 'string', 'max:100'],
             'delivery_note_photo' => ['required', 'image', 'max:5120'],
             'receiver_photo' => ['required', 'image', 'max:5120'],
             'items' => ['required', 'array', 'min:1'],
@@ -59,6 +60,7 @@ final class StoreRoundRequest extends FormRequest
     {
         return [
             'selected_user_id.required' => 'User wajib dipilih.',
+            'delivery_note_number.required' => 'Nomor surat jalan wajib diisi.',
             'delivery_note_photo.required' => 'Foto surat jalan wajib diupload.',
             'delivery_note_photo.image' => 'Foto surat jalan harus berupa gambar.',
             'receiver_photo.required' => 'Foto penerima wajib diupload.',
