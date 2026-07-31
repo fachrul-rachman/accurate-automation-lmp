@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
+use App\Enums\RoundStatus;
 use App\Models\GoodsReceiptRound;
 use App\Models\GoodsReceiptRoundItemPhoto;
 use App\Models\RoundAttachment;
@@ -61,14 +62,19 @@ final class RoundFileController extends Controller
         $round->loadMissing('inspection');
 
         match ($user->role) {
-            UserRole::Hod => abort_unless($round->selected_hod_id === $user->id, 403),
+            UserRole::User => abort_unless(
+                $round->selected_user_id === $user->id
+                && in_array($round->round_status, [RoundStatus::WaitingUserSignature, RoundStatus::NeedsRevision, RoundStatus::Signed], true),
+                403
+            ),
             UserRole::Warehouse => abort_unless(
                 $user->locations()
                     ->where('locations.id', $round->inspection->location_id)
                     ->exists(),
                 403
             ),
-            UserRole::HeadWarehouse, UserRole::Admin => null,
+            UserRole::HeadWarehouse => abort_unless($round->round_status !== RoundStatus::Draft, 403),
+            UserRole::Admin => null,
         };
     }
 }

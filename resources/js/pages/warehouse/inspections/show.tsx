@@ -20,13 +20,13 @@ type Props = {
 export default function WarehouseInspectionShow({ inspection }: Props) {
     return (
         <>
-            <Head title={`PB ${inspection.pb_number}`} />
+            <Head title={`Penerimaan Barang ${inspection.pb_number}`} />
             <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-950">
                 <section className="mx-auto w-full max-w-5xl">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <p className="text-sm font-medium text-teal-700">Warehouse</p>
-                            <h1 className="mt-2 text-2xl font-semibold">PB {inspection.pb_number}</h1>
+                            <h1 className="mt-2 text-2xl font-semibold">Penerimaan Barang {inspection.pb_number}</h1>
                         </div>
                         <div className="flex flex-wrap gap-2">
                             <Link
@@ -54,17 +54,17 @@ export default function WarehouseInspectionShow({ inspection }: Props) {
                                 <ClipboardList className="h-5 w-5" />
                             </span>
                             <div>
-                                <p className="font-semibold">Detail PB</p>
+                                <p className="font-semibold">Detail Penerimaan Barang</p>
                                 <p className="text-sm text-slate-500">Data awal dari Accurate sudah disimpan.</p>
                             </div>
                         </div>
 
                         <dl className="mt-5 grid gap-4 md:grid-cols-2">
-                            <Info label="Nomor PB" value={inspection.pb_number} />
+                            <Info label="Nomor Penerimaan Barang" value={inspection.pb_number} />
                             <Info label="Nomor PO" value={inspection.po_number ?? '-'} />
                             <Info label="Supplier" value={inspection.supplier_name ?? '-'} />
-                            <Info label="Tanggal PB" value={inspection.pb_date ?? '-'} />
-                            <Info label="Status PB" value={inspection.pb_status} />
+                            <Info label="Tanggal Penerimaan Barang" value={inspection.pb_date ?? '-'} />
+                            <Info label="Status Penerimaan Barang" value={inspection.pb_status} />
                             <Info label="Status PDF" value={inspection.pdf_status} />
                             <Info label="Jumlah Item" value={String(inspection.item_count)} />
                         </dl>

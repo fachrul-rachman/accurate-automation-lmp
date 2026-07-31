@@ -42,8 +42,9 @@ type Round = {
     specification_matches_po: boolean;
     notes: string | null;
     submitted_at: string | null;
-    hod_signed_at: string | null;
     head_warehouse_signed_at: string | null;
+    user_signed_at: string | null;
+    rejection_reason: string | null;
     inspection: {
         pb_number: string;
         po_number: string | null;
@@ -54,6 +55,7 @@ type Round = {
     attachments: RoundAttachment[];
     partial_reasons: string[];
     can_sign: boolean;
+    can_reject: boolean;
 };
 
 type Props = {
@@ -62,7 +64,10 @@ type Props = {
 
 export default function HeadWarehouseRoundShow({ round }: Props) {
     const online = useOnlineStatus();
-    const { post, processing, errors } = useForm<{ round?: string }>({});
+    const { data, setData, post, processing, errors } = useForm<{
+        reason: string;
+        round?: string;
+    }>({ reason: '' });
     const showRemainingQty =
         round.completion_result === 'PARTIAL' ||
         round.partial_reasons.length > 0;
@@ -72,19 +77,24 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
         post(`/head-warehouse/rounds/${round.id}/sign`);
     }
 
+    function reject(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        post(`/head-warehouse/rounds/${round.id}/reject`);
+    }
+
     return (
         <>
-            <Head title={`Kepala Gudang - PB ${round.inspection.pb_number}`} />
+            <Head title={`Head Warehouse - Penerimaan Barang ${round.inspection.pb_number}`} />
             <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-950">
                 <section className="mx-auto w-full max-w-5xl">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <p className="text-sm font-medium text-teal-700">
-                                Kepala Gudang -{' '}
+                                Head Warehouse -{' '}
                                 {round.inspection.location_name ?? '-'}
                             </p>
                             <h1 className="mt-2 text-2xl font-semibold">
-                                PB {round.inspection.pb_number} / Round{' '}
+                                Penerimaan Barang {round.inspection.pb_number} / Round{' '}
                                 {round.round_number}
                             </h1>
                             <StatusChip
@@ -146,10 +156,7 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
                                         : 'Tidak'
                                 }
                             />
-                            <Info
-                                label="Ditandatangani User"
-                                value={round.hod_signed_at ?? '-'}
-                            />
+                            <Info label="Dikirim" value={round.submitted_at ?? '-'} />
                             {round.completion_result && (
                                 <Info
                                     label="Hasil"
@@ -264,20 +271,42 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
                     </div>
 
                     {round.can_sign ? (
-                        <form onSubmit={sign} className="mt-5">
+                        <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        <form onSubmit={sign}>
                             <button
                                 type="submit"
                                 disabled={processing || !online}
                                 className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-70"
                             >
                                 <CheckCircle2 className="h-4 w-4" />
-                                Diketahui
+                                Tanda tangani
                             </button>
                         </form>
+                        <form onSubmit={reject} className="space-y-2">
+                            <label className="block text-sm font-medium text-slate-700" htmlFor="rejection-reason">
+                                Alasan reject
+                            </label>
+                            <textarea
+                                id="rejection-reason"
+                                value={data.reason}
+                                onChange={(event) => setData('reason', event.target.value)}
+                                maxLength={1000}
+                                required
+                                className="w-full rounded-md border border-slate-300 px-3 py-2"
+                            />
+                            {errors.reason && <p className="text-sm text-red-600">{errors.reason}</p>}
+                            <button
+                                type="submit"
+                                disabled={processing || !online}
+                                className="rounded-md border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-70"
+                            >
+                                Reject ke Warehouse
+                            </button>
+                        </form>
+                        </div>
                     ) : (
                         <p className="mt-5 text-sm text-slate-500">
-                            Round ini sudah tidak menunggu tanda tangan kepala
-                            gudang.
+                            Round ini sudah tidak menunggu tindakan Head Warehouse.
                         </p>
                     )}
 

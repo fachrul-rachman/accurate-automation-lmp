@@ -14,7 +14,7 @@ const navItems: NavItem[] = [
     { key: 'dashboard', href: '/dashboard/admin', label: 'Dashboard', icon: LayoutDashboard },
     { key: 'users', href: '/admin/users', label: 'Users', icon: Users },
     { key: 'locations', href: '/admin/locations', label: 'Locations', icon: Building2 },
-    { key: 'monitoring', href: '/admin/monitoring', label: 'Monitoring', icon: ClipboardList },
+    { key: 'monitoring', href: '/admin/monitoring', label: 'Round Penerimaan Barang', icon: ClipboardList },
 ];
 
 export function AdminShell({ current, title, userSummary, children }: { current: string; title: string; userSummary?: { name: string; locations: string }; children: ReactNode }) {

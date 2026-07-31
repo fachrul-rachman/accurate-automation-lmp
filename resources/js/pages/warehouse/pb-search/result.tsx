@@ -37,40 +37,71 @@ type SearchResult = {
 type Props = {
     location: Location;
     result: SearchResult;
-    hods: Array<{ id: number; name: string }>;
+    users: Array<{ id: number; name: string }>;
+    editing_round?: {
+        id: number;
+        selected_user_id: number;
+        specification_matches_po: boolean;
+        notes: string | null;
+        rejection_reason: string | null;
+        items: Array<{
+            accurate_detail_item_id: string | null;
+            quality_status: string;
+            quantity_status: string;
+            received_qty: string | null;
+            damaged_qty: string;
+        }>;
+    };
 };
 
 export default function WarehousePbSearchResult({
     location,
     result,
-    hods,
+    users,
+    editing_round,
 }: Props) {
     const online = useOnlineStatus();
     const [step, setStep] = useState<'items' | 'round'>('items');
     const [showValidationErrors, setShowValidationErrors] = useState(false);
-    const { data, setData, post, processing, errors, clearErrors } = useForm({
+    const { data, setData, post, put, processing, errors, clearErrors } = useForm({
         location_id: location.id,
         pb_number: result.number,
-        selected_hod_id: hods[0]?.id ?? '',
-        specification_matches_po: true,
-        notes: '',
+        selected_user_id:
+            editing_round?.selected_user_id ?? users[0]?.id ?? '',
+        specification_matches_po:
+            editing_round?.specification_matches_po ?? true,
+        notes: editing_round?.notes ?? '',
         delivery_note_photo: null as File | null,
         receiver_photo: null as File | null,
-        items: result.items.map((item) => ({
-            is_checked: false,
-            accurate_detail_item_id: item.accurate_item_row_id ?? '',
-            quality_status: 'GOOD',
-            quantity_status: 'MATCH',
-            received_qty: '',
-            damaged_qty: '0',
-            item_photos: [] as File[],
-            damage_photos: [] as File[],
-        })),
+        items: result.items.map((item) => {
+            const existing = editing_round?.items.find(
+                (roundItem) =>
+                    roundItem.accurate_detail_item_id ===
+                    item.accurate_item_row_id,
+            );
+
+            return {
+                is_checked: existing !== undefined,
+                accurate_detail_item_id: item.accurate_item_row_id ?? '',
+                quality_status: existing?.quality_status ?? 'GOOD',
+                quantity_status: existing?.quantity_status ?? 'MATCH',
+                received_qty: existing?.received_qty ?? '',
+                damaged_qty: existing?.damaged_qty ?? '0',
+                item_photos: [] as File[],
+                damage_photos: [] as File[],
+            };
+        }),
     });
 
     function submit() {
         setShowValidationErrors(true);
-        post('/warehouse/rounds', { forceFormData: true });
+        if (editing_round) {
+            put(`/warehouse/rounds/${editing_round.id}`, {
+                forceFormData: true,
+            });
+        } else {
+            post('/warehouse/rounds', { forceFormData: true });
+        }
     }
 
     function goToRoundStep() {
@@ -112,7 +143,7 @@ export default function WarehousePbSearchResult({
 
     return (
         <>
-            <Head title={`PB ${result.number}`} />
+            <Head title={`Penerimaan Barang ${result.number}`} />
             <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-950">
                 <section className="mx-auto w-full max-w-5xl">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -121,7 +152,7 @@ export default function WarehousePbSearchResult({
                                 Warehouse - {location.name}
                             </p>
                             <h1 className="mt-2 text-2xl font-semibold">
-                                PB {result.number}
+                                Penerimaan Barang {result.number}
                             </h1>
                         </div>
                         <div className="flex flex-wrap gap-2">
@@ -145,6 +176,13 @@ export default function WarehousePbSearchResult({
                     </div>
 
                     <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+                        {editing_round?.rejection_reason && (
+                            <div className="mb-5 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                                <p className="font-semibold">Alasan reject</p>
+                                <p className="mt-1">{editing_round.rejection_reason}</p>
+                                <p className="mt-2">Unggah ulang seluruh foto setelah memperbaiki data.</p>
+                            </div>
+                        )}
                         <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
                             <span className="flex h-10 w-10 items-center justify-center rounded-md bg-teal-50 text-teal-700">
                                 <ClipboardList className="h-5 w-5" />
@@ -161,7 +199,7 @@ export default function WarehousePbSearchResult({
                         </div>
 
                         <dl className="mt-5 grid gap-4 md:grid-cols-2">
-                            <Info label="Nomor PB" value={result.number} />
+                            <Info label="Nomor Penerimaan Barang" value={result.number} />
                             <Info
                                 label="Nomor PO"
                                 value={result.po_number ?? '-'}
@@ -171,7 +209,7 @@ export default function WarehousePbSearchResult({
                                 value={result.supplier_name ?? '-'}
                             />
                             <Info
-                                label="Tanggal PB"
+                                label="Tanggal Penerimaan Barang"
                                 value={result.pb_date ?? '-'}
                             />
                         </dl>
@@ -225,25 +263,25 @@ export default function WarehousePbSearchResult({
                                         User
                                     </span>
                                     <select
-                                        value={data.selected_hod_id}
+                                        value={data.selected_user_id}
                                         onChange={(event) =>
                                             setData(
-                                                'selected_hod_id',
+                                                'selected_user_id',
                                                 Number(event.target.value),
                                             )
                                         }
                                         className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
                                     >
-                                        {hods.map((hod) => (
-                                            <option key={hod.id} value={hod.id}>
-                                                {hod.name}
+                                        {users.map((user) => (
+                                            <option key={user.id} value={user.id}>
+                                                {user.name}
                                             </option>
                                         ))}
                                     </select>
                                     {showValidationErrors &&
-                                        errors.selected_hod_id && (
+                                        errors.selected_user_id && (
                                             <span className="mt-1 block text-red-600">
-                                                {errors.selected_hod_id}
+                                                {errors.selected_user_id}
                                             </span>
                                         )}
                                 </label>
@@ -754,13 +792,13 @@ export default function WarehousePbSearchResult({
                                     onClick={submit}
                                     disabled={
                                         processing ||
-                                        hods.length === 0 ||
+                                        users.length === 0 ||
                                         !online
                                     }
                                     className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-70"
                                 >
                                     <Save className="h-4 w-4" />
-                                    Simpan Draft Round
+                                    {editing_round ? 'Simpan Perbaikan' : 'Simpan Draft Round'}
                                 </button>
                             )}
                         </div>

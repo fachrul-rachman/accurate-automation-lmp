@@ -75,17 +75,17 @@ export default function HeadWarehouseDashboard({
                                     Menunggu tanda tangan kepala gudang
                                 </h2>
                                 <p className="mt-1 text-sm text-slate-500">
-                                    Round PB yang sudah ditandatangani user.
+                                    Penerimaan Barang yang menunggu tindakan Anda.
                                 </p>
                             </div>
                             <span className="rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
-                                {pending_round_count} PB
+                                {pending_round_count} Penerimaan Barang
                             </span>
                         </div>
 
                         {pending_rounds.length === 0 ? (
                             <p className="mt-5 rounded-md border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">
-                                Belum ada PB yang menunggu tanda tangan.
+                                Belum ada Penerimaan Barang yang menunggu tindakan.
                             </p>
                         ) : (
                             <RoundTable rounds={pending_rounds} />
@@ -101,11 +101,11 @@ export default function HeadWarehouseDashboard({
                                     Riwayat
                                 </h2>
                                 <p className="mt-1 text-sm text-slate-500">
-                                    Round PB yang sudah diketahui kepala gudang.
+                                    Riwayat Round Penerimaan Barang.
                                 </p>
                             </div>
                             <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
-                                {history_round_count} PB
+                                {history_round_count} Penerimaan Barang
                             </span>
                         </div>
 
@@ -135,7 +135,7 @@ function RoundTable({
             <table className="w-full text-left text-sm">
                 <thead className="bg-slate-100 text-slate-700">
                     <tr>
-                        <th className="px-4 py-3">Nomor PB</th>
+                        <th className="px-4 py-3">Nomor Penerimaan Barang</th>
                         <th className="px-4 py-3">Nomor PO</th>
                         <th className="px-4 py-3">Lokasi</th>
                         <th className="px-4 py-3">Supplier</th>
@@ -236,7 +236,7 @@ function HeadWarehouseShell({
     const navItems: NavItem[] = [
         {
             key: 'pending',
-            label: 'Menunggu Tanda Tangan',
+            label: 'Menunggu Saya',
             icon: Clock,
             badge: pendingCount,
         },
@@ -358,6 +358,7 @@ function HeadWarehouseSidebar({
                 )}
             </div>
             <nav className="flex-1 space-y-1 p-3">
+                {open && <p className="px-3 pb-2 text-xs font-semibold uppercase text-slate-500">Round Penerimaan Barang</p>}
                 {navItems.map((item) => {
                     const Icon = item.icon;
                     const active = activeView === item.key;

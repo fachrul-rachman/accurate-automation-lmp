@@ -51,15 +51,15 @@ export default function AdminMonitoringIndex({
 
     return (
         <>
-            <Head title="Monitoring PB" />
-            <AdminShell current="monitoring" title="Monitoring PB">
+            <Head title="Monitoring Penerimaan Barang" />
+            <AdminShell current="monitoring" title="Monitoring Penerimaan Barang">
                 <form
                     onSubmit={submit}
                     className="mt-5 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-[220px_1fr_auto]"
                 >
                     <label className="block text-sm">
                         <span className="font-medium text-slate-700">
-                            Status PB
+                            Status Penerimaan Barang
                         </span>
                         <select
                             value={status}
@@ -76,14 +76,14 @@ export default function AdminMonitoringIndex({
                     </label>
                     <label className="block text-sm">
                         <span className="font-medium text-slate-700">
-                            Cari PB / PO / Supplier
+                            Cari Penerimaan Barang / PO / Supplier
                         </span>
                         <input
                             type="text"
                             value={query}
                             onChange={(event) => setQuery(event.target.value)}
                             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-                            placeholder="Contoh: PB-001"
+                            placeholder="Contoh: RI-001"
                         />
                     </label>
                     <button
@@ -99,7 +99,7 @@ export default function AdminMonitoringIndex({
                     <table className="w-full text-left text-sm">
                         <thead className="bg-slate-100 text-slate-700">
                             <tr>
-                                <th className="px-4 py-3">Nomor PB</th>
+                                <th className="px-4 py-3">Nomor Penerimaan Barang</th>
                                 <th className="px-4 py-3">Nomor PO</th>
                                 <th className="px-4 py-3">Lokasi</th>
                                 <th className="px-4 py-3">Supplier</th>
@@ -117,7 +117,7 @@ export default function AdminMonitoringIndex({
                                         colSpan={9}
                                         className="px-4 py-8 text-center text-slate-500"
                                     >
-                                        Tidak ada PB untuk filter ini.
+                                        Tidak ada Penerimaan Barang untuk filter ini.
                                     </td>
                                 </tr>
                             ) : (

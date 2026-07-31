@@ -28,7 +28,7 @@ final class PdfExportController extends Controller
             'PDF_DOWNLOADED',
             $user instanceof User ? $user : null,
             $pdfExport->inspection,
-            "PDF final PB {$pdfExport->inspection->pb_number} diunduh.",
+            "PDF final Penerimaan Barang {$pdfExport->inspection->pb_number} diunduh.",
             metadata: ['pdf_export_id' => $pdfExport->id],
             request: $request,
         );
@@ -69,7 +69,7 @@ final class PdfExportController extends Controller
                     ->exists(),
                 403
             ),
-            UserRole::Hod, UserRole::HeadWarehouse => abort(403),
+            UserRole::User, UserRole::HeadWarehouse => abort(403),
         };
     }
 }

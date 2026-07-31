@@ -33,7 +33,7 @@ final class AccurateReceiveItemService
         $items = $this->detailItems($detail);
 
         if ($items === []) {
-            throw new RuntimeException('PB ditemukan tetapi tidak memiliki item. PB tidak dapat diproses.');
+            throw new RuntimeException('Penerimaan Barang ditemukan tetapi tidak memiliki item dan tidak dapat diproses.');
         }
 
         $mappedItems = $this->mappedItems($items);
@@ -64,25 +64,25 @@ final class AccurateReceiveItemService
                 'filter.number' => $pbNumber,
             ]);
 
-        $rows = $this->responseData($response, 'Gagal mencari PB di Accurate.');
+        $rows = $this->responseData($response, 'Gagal mencari Penerimaan Barang di Accurate.');
 
         if ($rows === []) {
-            throw new RuntimeException('Nomor PB tidak ditemukan di Accurate.');
+            throw new RuntimeException('Nomor Penerimaan Barang tidak ditemukan di Accurate.');
         }
 
         foreach ($rows as $row) {
             if (is_array($row) && ($row['number'] ?? null) === $pbNumber) {
-                return $this->objectData($row, 'Nomor PB tidak ditemukan di Accurate.');
+                return $this->objectData($row, 'Nomor Penerimaan Barang tidak ditemukan di Accurate.');
             }
         }
 
         $firstRow = $rows[0] ?? null;
 
         if (! is_array($firstRow)) {
-            throw new RuntimeException('Nomor PB tidak ditemukan di Accurate.');
+            throw new RuntimeException('Nomor Penerimaan Barang tidak ditemukan di Accurate.');
         }
 
-        return $this->objectData($firstRow, 'Nomor PB tidak ditemukan di Accurate.');
+        throw new RuntimeException('Nomor Penerimaan Barang tidak ditemukan secara tepat di Accurate.');
     }
 
     /**
@@ -100,7 +100,7 @@ final class AccurateReceiveItemService
                 'id' => $receiveItemId,
             ]);
 
-        return $this->responseObjectData($response, 'Gagal mengambil detail PB dari Accurate.');
+        return $this->responseObjectData($response, 'Gagal mengambil detail Penerimaan Barang dari Accurate.');
     }
 
     private function locationHost(Location $location): string
@@ -193,7 +193,7 @@ final class AccurateReceiveItemService
                 'accurate_item_row_id' => isset($item['id']) ? (string) $item['id'] : null,
                 'item_no' => $this->nestedStringValue($item, ['item', 'no']),
                 'item_name' => $this->stringValue($item, 'detailName') ?? $this->nestedStringValue($item, ['item', 'name']),
-                'po_number' => $this->purchaseOrderNumber($this->objectData($item, 'Gagal membaca item PB dari Accurate.')),
+                'po_number' => $this->purchaseOrderNumber($this->objectData($item, 'Gagal membaca item Penerimaan Barang dari Accurate.')),
                 'quantity' => $this->floatValue($item, 'quantity'),
                 'unit' => $this->nestedStringValue($item, ['itemUnit', 'name']),
             ];

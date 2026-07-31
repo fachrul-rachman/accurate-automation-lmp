@@ -23,7 +23,7 @@ type Props = {
 
 const roleLabels: Record<string, string> = {
     WAREHOUSE: 'Warehouse',
-    HOD: 'User',
+    USER: 'User',
     HEAD_WAREHOUSE: 'Head Warehouse',
     ADMIN: 'Admin',
 };

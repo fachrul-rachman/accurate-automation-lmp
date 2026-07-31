@@ -31,13 +31,13 @@ final class PdfGenerationService
             'rounds.items.photos',
             'rounds.attachments',
             'rounds.creator',
-            'rounds.selectedHod',
-            'rounds.hodSigner',
+            'rounds.selectedUser',
+            'rounds.userSigner',
             'rounds.headWarehouseSigner',
         ]);
 
         $pdfBinary = $this->renderPdf($inspection);
-        $fileName = 'PB-'.$this->safePathPart($inspection->pb_number).'-final.pdf';
+        $fileName = 'Penerimaan-Barang-'.$this->safePathPart($inspection->pb_number).'-final.pdf';
         $key = 'goods-receipts/'.$this->safePathPart($inspection->pb_number).'/pdf/final.pdf';
 
         Storage::disk($this->storage->disk())->put($key, $pdfBinary);
@@ -55,7 +55,7 @@ final class PdfGenerationService
             'PDF_GENERATED',
             $generatedBy,
             $inspection,
-            "PDF final PB {$inspection->pb_number} dibuat.",
+            "PDF final Penerimaan Barang {$inspection->pb_number} dibuat.",
             metadata: ['pdf_export_id' => $pdfExport->id],
         );
 

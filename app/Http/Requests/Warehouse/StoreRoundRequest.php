@@ -26,7 +26,7 @@ final class StoreRoundRequest extends FormRequest
         return [
             'pb_number' => ['required', 'string', 'max:100'],
             'location_id' => ['required', 'integer', Rule::exists('locations', 'id')->where('is_active', true)],
-            'selected_hod_id' => ['required', 'integer', Rule::exists('users', 'id')],
+            'selected_user_id' => ['required', 'integer', Rule::exists('users', 'id')],
             'specification_matches_po' => ['required', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'delivery_note_photo' => ['required', 'image', 'max:5120'],
@@ -53,7 +53,7 @@ final class StoreRoundRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'selected_hod_id.required' => 'User wajib dipilih.',
+            'selected_user_id.required' => 'User wajib dipilih.',
             'delivery_note_photo.required' => 'Foto surat jalan wajib diupload.',
             'delivery_note_photo.image' => 'Foto surat jalan harus berupa gambar.',
             'receiver_photo.required' => 'Foto penerima wajib diupload.',
@@ -89,14 +89,14 @@ final class StoreRoundRequest extends FormRequest
 
                 $hodIsAllowed = $this->user()
                     ?->newQuery()
-                    ->where('id', $this->integer('selected_hod_id'))
-                    ->where('role', UserRole::Hod->value)
+                    ->where('id', $this->integer('selected_user_id'))
+                    ->where('role', UserRole::User->value)
                     ->where('is_active', true)
                     ->whereHas('locations', fn ($query) => $query->where('locations.id', $locationId))
                     ->exists() ?? false;
 
                 if (! $hodIsAllowed) {
-                    $validator->errors()->add('selected_hod_id', 'User tidak sesuai dengan lokasi ini.');
+                    $validator->errors()->add('selected_user_id', 'User tidak sesuai dengan lokasi ini.');
                 }
 
                 $checkedCount = 0;

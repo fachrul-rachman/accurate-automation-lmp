@@ -6,7 +6,7 @@ use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HeadWarehouse\RoundController as HeadWarehouseRoundController;
-use App\Http\Controllers\Hod\RoundController as HodRoundController;
+use App\Http\Controllers\User\RoundController as UserRoundController;
 use App\Http\Controllers\PdfExportController;
 use App\Http\Controllers\RoundFileController;
 use App\Http\Controllers\Warehouse\InspectionController;
@@ -60,7 +60,7 @@ Route::get('/offline', fn () => inertia('offline'))->name('offline');
 Route::middleware('auth')->group(function (): void {
     Route::get('/dashboard', [DashboardController::class, 'redirect'])->name('dashboard');
     Route::get('/dashboard/warehouse', [DashboardController::class, 'warehouse'])->name('dashboard.warehouse');
-    Route::get('/dashboard/hod', [DashboardController::class, 'hod'])->name('dashboard.hod');
+    Route::get('/dashboard/user', [DashboardController::class, 'user'])->name('dashboard.user');
     Route::get('/dashboard/head-warehouse', [DashboardController::class, 'headWarehouse'])->name('dashboard.head-warehouse');
     Route::get('/dashboard/admin', [DashboardController::class, 'admin'])->name('dashboard.admin');
 
@@ -75,18 +75,21 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/inspections/{inspection}', [InspectionController::class, 'show'])->name('inspections.show');
         Route::post('/rounds', [RoundController::class, 'store'])->name('rounds.store');
         Route::get('/rounds/{round}', [RoundController::class, 'show'])->name('rounds.show');
+        Route::get('/rounds/{round}/edit', [RoundController::class, 'edit'])->name('rounds.edit');
         Route::put('/rounds/{round}', [RoundController::class, 'update'])->name('rounds.update');
         Route::post('/rounds/{round}/submit', [RoundController::class, 'submit'])->name('rounds.submit');
     });
 
-    Route::prefix('hod')->name('hod.')->group(function (): void {
-        Route::get('/rounds/{round}', [HodRoundController::class, 'show'])->name('rounds.show');
-        Route::post('/rounds/{round}/sign', [HodRoundController::class, 'sign'])->name('rounds.sign');
+    Route::prefix('user')->name('user.')->group(function (): void {
+        Route::get('/rounds/{round}', [UserRoundController::class, 'show'])->name('rounds.show');
+        Route::post('/rounds/{round}/sign', [UserRoundController::class, 'sign'])->name('rounds.sign');
+        Route::post('/rounds/{round}/reject', [UserRoundController::class, 'reject'])->name('rounds.reject');
     });
 
     Route::prefix('head-warehouse')->name('head-warehouse.')->group(function (): void {
         Route::get('/rounds/{round}', [HeadWarehouseRoundController::class, 'show'])->name('rounds.show');
         Route::post('/rounds/{round}/sign', [HeadWarehouseRoundController::class, 'sign'])->name('rounds.sign');
+        Route::post('/rounds/{round}/reject', [HeadWarehouseRoundController::class, 'reject'])->name('rounds.reject');
     });
 
     Route::middleware('admin')->prefix('admin')->name('admin.')->group(function (): void {
@@ -101,5 +104,6 @@ Route::middleware('auth')->group(function (): void {
 
         Route::get('/monitoring', [MonitoringController::class, 'index'])->name('monitoring.index');
         Route::get('/monitoring/{inspection}', [MonitoringController::class, 'show'])->name('monitoring.show');
+        Route::delete('/monitoring/{inspection}', [MonitoringController::class, 'destroy'])->name('monitoring.destroy');
     });
 });

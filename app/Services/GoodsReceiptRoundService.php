@@ -16,6 +16,7 @@ use App\Models\Location;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 final class GoodsReceiptRoundService
@@ -42,107 +43,150 @@ final class GoodsReceiptRoundService
                 'inspection_id' => $inspection->id,
                 'round_number' => ((int) $inspection->rounds()->max('round_number')) + 1,
                 'created_by' => $warehouse->id,
-                'selected_hod_id' => $data['selected_hod_id'],
+                'selected_user_id' => $data['selected_user_id'],
                 'round_status' => RoundStatus::Draft,
                 'specification_matches_po' => (bool) $data['specification_matches_po'],
                 'notes' => $data['notes'] ?? null,
             ]);
 
-            $this->storeRoundAttachment($round, $data['delivery_note_photo'], RoundAttachmentType::DeliveryNote);
-            $this->storeRoundAttachment($round, $data['receiver_photo'], RoundAttachmentType::ReceiverPhoto);
-
-            foreach ($data['items'] as $index => $itemInput) {
-                if (! is_array($itemInput)) {
-                    continue;
-                }
-
-                if (! (bool) ($itemInput['is_checked'] ?? true)) {
-                    continue;
-                }
-
-                $accurateItem = $this->findAccurateItem($detail['items'], (string) $itemInput['accurate_detail_item_id']);
-                $roundItem = $this->createRoundItem($round, $accurateItem, $itemInput, $index + 1);
-
-                foreach ($this->uploadedFiles($itemInput, 'item_photo', 'item_photos') as $file) {
-                    $this->storeItemPhoto($roundItem, $file, RoundItemPhotoType::Item);
-                }
-
-                if (($itemInput['quality_status'] ?? null) === QualityStatus::Damaged->value) {
-                    foreach ($this->uploadedFiles($itemInput, 'damage_photo', 'damage_photos') as $file) {
-                        $this->storeItemPhoto($roundItem, $file, RoundItemPhotoType::Damage);
-                    }
-                }
-            }
+            $this->storeRoundContents($round, $detail, $data);
 
             $this->auditLogs->write(
                 'ROUND_CREATED',
                 $warehouse,
                 $round,
-                "Round {$round->round_number} dibuat untuk PB {$inspection->pb_number}.",
+                "Round {$round->round_number} dibuat untuk Penerimaan Barang {$inspection->pb_number}.",
             );
 
             return $round->load(['inspection', 'items.photos', 'attachments']);
         });
     }
 
-    public function submitToHod(GoodsReceiptRound $round): GoodsReceiptRound
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function reviseRound(GoodsReceiptRound $round, Location $location, User $warehouse, array $data): GoodsReceiptRound
     {
-        if ($round->round_status !== RoundStatus::Draft) {
+        if ($round->round_status !== RoundStatus::NeedsRevision) {
+            throw new RuntimeException('Hanya Round yang ditolak yang dapat diperbaiki.');
+        }
+
+        $detail = $this->accurateReceiveItems->findReceiveItemDetail($location, (string) $data['pb_number']);
+        $round->loadMissing(['inspection', 'attachments', 'items.photos']);
+
+        if ($round->inspection->pb_number !== $detail['number']) {
+            throw new RuntimeException('Nomor Penerimaan Barang tidak sesuai.');
+        }
+
+        $oldKeys = [
+            ...$round->attachments->pluck('r2_key')->all(),
+            ...$round->items->flatMap->photos->pluck('r2_key')->all(),
+        ];
+
+        $updated = DB::transaction(function () use ($round, $data, $detail, $warehouse): GoodsReceiptRound {
+            $round->items()->delete();
+            $round->attachments()->delete();
+            $round->update([
+                'selected_user_id' => $data['selected_user_id'],
+                'specification_matches_po' => (bool) $data['specification_matches_po'],
+                'notes' => $data['notes'] ?? null,
+            ]);
+            $this->storeRoundContents($round, $detail, $data);
+
+            $this->auditLogs->write(
+                'ROUND_REVISED',
+                $warehouse,
+                $round,
+                "Round {$round->round_number} Penerimaan Barang {$round->inspection->pb_number} diperbaiki.",
+            );
+
+            return $round->refresh();
+        });
+
+        Storage::disk($this->storage->disk())->delete($oldKeys);
+
+        return $updated;
+    }
+
+    public function submitToHeadWarehouse(GoodsReceiptRound $round): GoodsReceiptRound
+    {
+        if (! in_array($round->round_status, [RoundStatus::Draft, RoundStatus::NeedsRevision], true)) {
             throw new RuntimeException('Round sudah dikunci dan tidak bisa disubmit ulang.');
         }
 
         $round->update([
-            'round_status' => RoundStatus::WaitingHodSignature,
+            'round_status' => RoundStatus::WaitingHeadWarehouseSignature,
             'submitted_at' => now(),
+            'rejected_by' => null,
+            'rejected_at' => null,
+            'rejection_reason' => null,
         ]);
 
         $round->loadMissing('inspection');
         $this->auditLogs->write(
-            'ROUND_SUBMITTED_TO_HOD',
+            'ROUND_SUBMITTED_TO_HEAD_WAREHOUSE',
             $round->creator,
             $round,
-            "Round {$round->round_number} PB {$round->inspection->pb_number} dikirim ke user.",
+            "Round {$round->round_number} Penerimaan Barang {$round->inspection->pb_number} dikirim ke Head Warehouse.",
         );
 
         return $round->refresh();
     }
 
-    public function signByHod(GoodsReceiptRound $round, User $hod): GoodsReceiptRound
+    public function signByHeadWarehouse(GoodsReceiptRound $round, User $headWarehouse): GoodsReceiptRound
     {
-        if ($round->round_status !== RoundStatus::WaitingHodSignature) {
-            throw new RuntimeException('Round ini belum siap ditandatangani user.');
+        if ($round->round_status !== RoundStatus::WaitingHeadWarehouseSignature) {
+            throw new RuntimeException('Round ini belum siap ditandatangani Head Warehouse.');
         }
 
-        return DB::transaction(function () use ($round, $hod): GoodsReceiptRound {
+        return DB::transaction(function () use ($round, $headWarehouse): GoodsReceiptRound {
             $round->update([
-                'round_status' => RoundStatus::WaitingHeadWarehouseSignature,
-                'hod_signed_by' => $hod->id,
-                'hod_signed_at' => now(),
+                'round_status' => RoundStatus::WaitingUserSignature,
+                'head_warehouse_signed_by' => $headWarehouse->id,
+                'head_warehouse_signed_at' => now(),
             ]);
 
             $round->loadMissing('inspection');
             $this->auditLogs->write(
-                'HOD_SIGNED',
-                $hod,
+                'HEAD_WAREHOUSE_SIGNED',
+                $headWarehouse,
                 $round,
-                "User menandatangani round {$round->round_number} PB {$round->inspection->pb_number}.",
+                "Head Warehouse menandatangani round {$round->round_number} Penerimaan Barang {$round->inspection->pb_number}.",
             );
 
             return $round->refresh();
         });
     }
 
-    public function signByHeadWarehouse(GoodsReceiptRound $round, User $headWarehouse): GoodsReceiptRound
+    public function rejectByHeadWarehouse(GoodsReceiptRound $round, User $headWarehouse, string $reason): GoodsReceiptRound
     {
         if ($round->round_status !== RoundStatus::WaitingHeadWarehouseSignature) {
-            throw new RuntimeException('Round ini belum siap ditandatangani kepala gudang.');
+            throw new RuntimeException('Round ini belum siap diperiksa Head Warehouse.');
         }
 
-        return DB::transaction(function () use ($round, $headWarehouse): GoodsReceiptRound {
+        return $this->reject($round, $headWarehouse, $reason, 'HEAD_WAREHOUSE_REJECTED');
+    }
+
+    public function rejectByUser(GoodsReceiptRound $round, User $user, string $reason): GoodsReceiptRound
+    {
+        if ($round->round_status !== RoundStatus::WaitingUserSignature) {
+            throw new RuntimeException('Round ini belum siap diperiksa User.');
+        }
+
+        return $this->reject($round, $user, $reason, 'USER_REJECTED');
+    }
+
+    public function signByUser(GoodsReceiptRound $round, User $user): GoodsReceiptRound
+    {
+        if ($round->round_status !== RoundStatus::WaitingUserSignature) {
+            throw new RuntimeException('Round ini belum siap ditandatangani User.');
+        }
+
+        return DB::transaction(function () use ($round, $user): GoodsReceiptRound {
             $round->update([
                 'round_status' => RoundStatus::Signed,
-                'head_warehouse_signed_by' => $headWarehouse->id,
-                'head_warehouse_signed_at' => now(),
+                'user_signed_by' => $user->id,
+                'user_signed_at' => now(),
             ]);
 
             $round->loadMissing('inspection.rounds.items');
@@ -153,10 +197,10 @@ final class GoodsReceiptRoundService
             ]);
 
             $this->auditLogs->write(
-                'HEAD_WAREHOUSE_SIGNED',
-                $headWarehouse,
+                'USER_SIGNED',
+                $user,
                 $round,
-                "Kepala gudang menandatangani round {$round->round_number} PB {$round->inspection->pb_number}.",
+                "User menandatangani round {$round->round_number} Penerimaan Barang {$round->inspection->pb_number}.",
             );
 
             if ($completionResult === 'COMPLETE') {
@@ -166,12 +210,12 @@ final class GoodsReceiptRoundService
 
                 $this->auditLogs->write(
                     'PB_MARKED_COMPLETE',
-                    $headWarehouse,
+                    $user,
                     $round->inspection,
-                    "PB {$round->inspection->pb_number} ditandai lengkap.",
+                    "Penerimaan Barang {$round->inspection->pb_number} ditandai lengkap.",
                 );
 
-                $this->pdfGeneration->generateFinalPdf($round->inspection, $headWarehouse);
+                $this->pdfGeneration->generateFinalPdf($round->inspection, $user);
 
                 $round->inspection->update([
                     'pb_status' => GoodsReceiptInspectionStatus::PdfGenerated,
@@ -185,11 +229,38 @@ final class GoodsReceiptRoundService
 
                 $this->auditLogs->write(
                     'PB_MARKED_PARTIAL',
-                    $headWarehouse,
+                    $user,
                     $round->inspection,
-                    "PB {$round->inspection->pb_number} masih sebagian.",
+                    "Penerimaan Barang {$round->inspection->pb_number} masih sebagian.",
                 );
             }
+
+            return $round->refresh();
+        });
+    }
+
+    private function reject(GoodsReceiptRound $round, User $actor, string $reason, string $event): GoodsReceiptRound
+    {
+        return DB::transaction(function () use ($round, $actor, $reason, $event): GoodsReceiptRound {
+            $round->update([
+                'round_status' => RoundStatus::NeedsRevision,
+                'head_warehouse_signed_by' => null,
+                'head_warehouse_signed_at' => null,
+                'user_signed_by' => null,
+                'user_signed_at' => null,
+                'rejected_by' => $actor->id,
+                'rejected_at' => now(),
+                'rejection_reason' => $reason,
+            ]);
+
+            $round->loadMissing('inspection');
+            $this->auditLogs->write(
+                $event,
+                $actor,
+                $round,
+                "Round {$round->round_number} Penerimaan Barang {$round->inspection->pb_number} dikembalikan ke Warehouse.",
+                metadata: ['reason' => $reason],
+            );
 
             return $round->refresh();
         });
@@ -293,7 +364,7 @@ final class GoodsReceiptRoundService
             'PB_IMPORTED',
             $warehouse,
             $inspection,
-            "PB {$inspection->pb_number} diimport dari Accurate.",
+            "Penerimaan Barang {$inspection->pb_number} diimport dari Accurate.",
             newValues: [
                 'pb_number' => $inspection->pb_number,
                 'po_number' => $inspection->po_number,
@@ -308,7 +379,7 @@ final class GoodsReceiptRoundService
     private function ensureRoundCanBeCreated(GoodsReceiptInspection $inspection): void
     {
         if ($inspection->pb_status === GoodsReceiptInspectionStatus::PdfGenerated) {
-            throw new RuntimeException('PB sudah terkunci karena PDF final sudah dibuat.');
+            throw new RuntimeException('Penerimaan Barang sudah terkunci karena PDF final sudah dibuat.');
         }
 
         $hasActiveRound = $inspection->rounds()
@@ -316,7 +387,7 @@ final class GoodsReceiptRoundService
             ->exists();
 
         if ($hasActiveRound) {
-            throw new RuntimeException('PB ini masih memiliki round aktif.');
+            throw new RuntimeException('Penerimaan Barang ini masih memiliki round aktif.');
         }
     }
 
@@ -333,6 +404,35 @@ final class GoodsReceiptRoundService
         }
 
         throw new RuntimeException('Item Accurate tidak ditemukan.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $detail
+     * @param  array<string, mixed>  $data
+     */
+    private function storeRoundContents(GoodsReceiptRound $round, array $detail, array $data): void
+    {
+        $this->storeRoundAttachment($round, $data['delivery_note_photo'], RoundAttachmentType::DeliveryNote);
+        $this->storeRoundAttachment($round, $data['receiver_photo'], RoundAttachmentType::ReceiverPhoto);
+
+        foreach ($data['items'] as $index => $itemInput) {
+            if (! is_array($itemInput) || ! (bool) ($itemInput['is_checked'] ?? true)) {
+                continue;
+            }
+
+            $accurateItem = $this->findAccurateItem($detail['items'], (string) $itemInput['accurate_detail_item_id']);
+            $roundItem = $this->createRoundItem($round, $accurateItem, $itemInput, $index + 1);
+
+            foreach ($this->uploadedFiles($itemInput, 'item_photo', 'item_photos') as $file) {
+                $this->storeItemPhoto($roundItem, $file, RoundItemPhotoType::Item);
+            }
+
+            if (($itemInput['quality_status'] ?? null) === QualityStatus::Damaged->value) {
+                foreach ($this->uploadedFiles($itemInput, 'damage_photo', 'damage_photos') as $file) {
+                    $this->storeItemPhoto($roundItem, $file, RoundItemPhotoType::Damage);
+                }
+            }
+        }
     }
 
     /**

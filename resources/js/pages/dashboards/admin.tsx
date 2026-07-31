@@ -24,7 +24,7 @@ export default function AdminDashboard({ user_summary }: Props) {
                     </section>
                     <section className="rounded-lg border border-slate-200 bg-white p-5">
                         <h2 className="font-semibold">Monitoring</h2>
-                        <p className="mt-2 text-sm text-slate-600">Monitoring PB akan aktif setelah workflow inspection tersedia.</p>
+                        <p className="mt-2 text-sm text-slate-600">Monitoring Penerimaan Barang.</p>
                     </section>
                 </div>
             </AdminShell>

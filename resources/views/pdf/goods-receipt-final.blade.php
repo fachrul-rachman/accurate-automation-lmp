@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="utf-8">
-    <title>PB {{ $inspection->pb_number }}</title>
+    <title>Penerimaan Barang {{ $inspection->pb_number }}</title>
     <style>
         @page { margin: 28px; }
         body { color: #0f172a; font-family: DejaVu Sans, sans-serif; font-size: 11px; line-height: 1.45; }
@@ -27,16 +27,16 @@
 <body>
     <header>
         <p class="muted">Final PDF Penerimaan Barang</p>
-        <h1>PB {{ $inspection->pb_number }}</h1>
+        <h1>Penerimaan Barang {{ $inspection->pb_number }}</h1>
         <p class="muted">Dibuat: {{ $generatedAt }}</p>
     </header>
 
-    <h2>Informasi PB</h2>
+    <h2>Informasi Penerimaan Barang</h2>
     <table class="grid">
-        <tr><td class="label">Nomor PB</td><td>{{ $inspection->pb_number }}</td></tr>
+        <tr><td class="label">Nomor Penerimaan Barang</td><td>{{ $inspection->pb_number }}</td></tr>
         <tr><td class="label">Nomor PO</td><td>{{ $inspection->po_number ?? '-' }}</td></tr>
         <tr><td class="label">Supplier</td><td>{{ $inspection->supplier_name ?? '-' }}</td></tr>
-        <tr><td class="label">Tanggal PB</td><td>{{ $inspection->pb_date?->format('d/m/Y') ?? '-' }}</td></tr>
+        <tr><td class="label">Tanggal Penerimaan Barang</td><td>{{ $inspection->pb_date?->format('d/m/Y') ?? '-' }}</td></tr>
         <tr><td class="label">Lokasi</td><td>{{ $inspection->location?->name ?? '-' }}</td></tr>
         <tr><td class="label">Status</td><td><span class="status">{{ $inspection->pb_status->label() }}</span></td></tr>
     </table>
@@ -47,7 +47,7 @@
             <tr>
                 <th>Kode</th>
                 <th>Nama Item</th>
-                <th>Qty PB</th>
+                <th>Qty Penerimaan</th>
                 <th>Diterima</th>
                 <th>Rusak</th>
                 <th>Qty Baik</th>
@@ -78,8 +78,8 @@
             <tr><td class="label">Sesuai PO</td><td>{{ $round->specification_matches_po ? 'Ya' : 'Tidak' }}</td></tr>
             <tr><td class="label">Catatan</td><td>{{ $round->notes ?? '-' }}</td></tr>
             <tr><td class="label">Warehouse</td><td>{{ $round->creator?->name ?? '-' }}</td></tr>
-            <tr><td class="label">User</td><td>{{ $round->hodSigner?->name ?? $round->selectedHod?->name ?? '-' }} - {{ \App\Support\DateFormatter::wib($round->hod_signed_at) ?? '-' }}</td></tr>
-            <tr><td class="label">Kepala Gudang</td><td>{{ $round->headWarehouseSigner?->name ?? '-' }} - {{ \App\Support\DateFormatter::wib($round->head_warehouse_signed_at) ?? '-' }}</td></tr>
+            <tr><td class="label">Head Warehouse</td><td>{{ $round->headWarehouseSigner?->name ?? '-' }} - {{ \App\Support\DateFormatter::wib($round->head_warehouse_signed_at) ?? '-' }}</td></tr>
+            <tr><td class="label">User</td><td>{{ $round->userSigner?->name ?? $round->selectedUser?->name ?? '-' }} - {{ \App\Support\DateFormatter::wib($round->user_signed_at) ?? '-' }}</td></tr>
         </table>
 
         <table>
@@ -87,7 +87,7 @@
                 <tr>
                     <th>No</th>
                     <th>Item</th>
-                    <th>Qty PB</th>
+                    <th>Qty Penerimaan</th>
                     <th>Diterima</th>
                     <th>Rusak</th>
                     <th>Kualitas</th>
@@ -149,12 +149,12 @@
                     <strong>{{ $finalRound->creator?->name ?? '-' }}</strong>
                 </td>
                 <td>
-                    Diterima Peminta<br>
-                    <strong>{{ $finalRound->hodSigner?->name ?? '-' }}</strong>
+                    Head Warehouse<br>
+                    <strong>{{ $finalRound->headWarehouseSigner?->name ?? '-' }}</strong>
                 </td>
                 <td>
-                    Diketahui Kepala Gudang<br>
-                    <strong>{{ $finalRound->headWarehouseSigner?->name ?? '-' }}</strong>
+                    User<br>
+                    <strong>{{ $finalRound->userSigner?->name ?? '-' }}</strong>
                 </td>
             </tr>
         </table>

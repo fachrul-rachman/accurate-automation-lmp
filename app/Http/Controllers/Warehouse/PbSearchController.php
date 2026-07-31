@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Warehouse;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Warehouse\SearchPbRequest;
 use App\Models\GoodsReceiptInspection;
@@ -89,8 +90,8 @@ final class PbSearchController extends Controller
                 'name' => $location->name,
             ],
             'result' => $this->withRemainingQuantities($result, $location->id),
-            'hods' => $location->users()
-                ->where('role', 'HOD')
+            'users' => $location->users()
+                ->where('role', UserRole::User->value)
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['users.id', 'users.name'])

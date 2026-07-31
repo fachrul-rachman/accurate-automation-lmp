@@ -39,8 +39,9 @@ final class RoundController extends Controller
                 'specification_matches_po' => $round->specification_matches_po,
                 'notes' => $round->notes,
                 'submitted_at' => DateFormatter::wib($round->submitted_at),
-                'hod_signed_at' => DateFormatter::wib($round->hod_signed_at),
                 'head_warehouse_signed_at' => DateFormatter::wib($round->head_warehouse_signed_at),
+                'user_signed_at' => DateFormatter::wib($round->user_signed_at),
+                'rejection_reason' => $round->rejection_reason,
                 'inspection' => [
                     'pb_number' => $round->inspection->pb_number,
                     'po_number' => $round->inspection->po_number,
@@ -75,6 +76,7 @@ final class RoundController extends Controller
                 ])->all(),
                 'partial_reasons' => RoundPartialReason::forRound($round),
                 'can_sign' => $round->round_status === RoundStatus::WaitingHeadWarehouseSignature,
+                'can_reject' => $round->round_status === RoundStatus::WaitingHeadWarehouseSignature,
             ],
         ]);
     }
@@ -92,6 +94,20 @@ final class RoundController extends Controller
         return redirect()->route('head-warehouse.rounds.show', $round);
     }
 
+    public function reject(Request $request, GoodsReceiptRound $round): RedirectResponse
+    {
+        $this->authorizeHeadWarehouseAccess($request);
+        $reason = $request->validate(['reason' => ['required', 'string', 'max:1000']])['reason'];
+
+        try {
+            $this->rounds->rejectByHeadWarehouse($round, $request->user(), $reason);
+        } catch (RuntimeException $exception) {
+            return back()->withErrors(['round' => $exception->getMessage()]);
+        }
+
+        return redirect()->route('head-warehouse.rounds.show', $round);
+    }
+
     private function authorizeHeadWarehouseAccess(Request $request): void
     {
         $user = $request->user();
@@ -102,7 +118,12 @@ final class RoundController extends Controller
     private function authorizeHeadWarehouseRoundVisibility(GoodsReceiptRound $round): void
     {
         abort_unless(
-            in_array($round->round_status, [RoundStatus::WaitingHeadWarehouseSignature, RoundStatus::Signed], true),
+            in_array($round->round_status, [
+                RoundStatus::WaitingHeadWarehouseSignature,
+                RoundStatus::WaitingUserSignature,
+                RoundStatus::NeedsRevision,
+                RoundStatus::Signed,
+            ], true),
             403
         );
     }

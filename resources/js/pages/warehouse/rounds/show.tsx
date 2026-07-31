@@ -35,6 +35,8 @@ type Round = {
     items: RoundItem[];
     partial_reasons: string[];
     can_edit: boolean;
+    edit_url: string | null;
+    rejection_reason: string | null;
     pdf_download_url: string | null;
     continue_url: string | null;
 };
@@ -62,7 +64,7 @@ export default function WarehouseRoundShow({ round }: Props) {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <p className="text-sm font-medium text-teal-700">Warehouse - {round.inspection.location_name ?? '-'}</p>
-                            <h1 className="mt-2 text-2xl font-semibold">PB {round.inspection.pb_number} / Round {round.round_number}</h1>
+                            <h1 className="mt-2 text-2xl font-semibold">Penerimaan Barang {round.inspection.pb_number} / Round {round.round_number}</h1>
                             <StatusChip
                                 status={round.round_status}
                                 completionResult={round.completion_result}
@@ -103,6 +105,18 @@ export default function WarehouseRoundShow({ round }: Props) {
 
                     {round.partial_reasons.length > 0 && (
                         <PartialReasonBox reasons={round.partial_reasons} />
+                    )}
+
+                    {round.rejection_reason && (
+                        <div className="mt-5 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                            <p className="font-semibold">Perlu perbaikan</p>
+                            <p className="mt-1">{round.rejection_reason}</p>
+                            {round.edit_url && (
+                                <Link href={round.edit_url} className="mt-3 inline-flex rounded-md bg-red-700 px-4 py-2 font-semibold text-white">
+                                    Perbaiki pemeriksaan
+                                </Link>
+                            )}
+                        </div>
                     )}
 
                     <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">

@@ -113,16 +113,16 @@ final class DashboardController extends Controller
         return $round->completion_result === 'PARTIAL' ? 'Parsial' : $round->round_status->label();
     }
 
-    public function hod(): Response
+    public function user(): Response
     {
         $user = request()->user();
-        abort_unless($user !== null && $user->role === UserRole::Hod, 403);
+        abort_unless($user !== null && $user->role === UserRole::User, 403);
 
         $pendingRounds = GoodsReceiptRound::query()
             ->with(['inspection.location'])
-            ->where('selected_hod_id', $user->id)
-            ->where('round_status', RoundStatus::WaitingHodSignature)
-            ->latest('submitted_at')
+            ->where('selected_user_id', $user->id)
+            ->where('round_status', RoundStatus::WaitingUserSignature)
+            ->latest('head_warehouse_signed_at')
             ->limit(20)
             ->get()
             ->map(fn (GoodsReceiptRound $round): array => [
@@ -138,8 +138,8 @@ final class DashboardController extends Controller
 
         $historyRounds = GoodsReceiptRound::query()
             ->with(['inspection.location'])
-            ->where('selected_hod_id', $user->id)
-            ->where('round_status', '!=', RoundStatus::WaitingHodSignature)
+            ->where('selected_user_id', $user->id)
+            ->whereIn('round_status', [RoundStatus::NeedsRevision, RoundStatus::Signed])
             ->latest('updated_at')
             ->limit(20)
             ->get()
@@ -156,7 +156,7 @@ final class DashboardController extends Controller
             ])
             ->all();
 
-        return Inertia::render('dashboards/hod', [
+        return Inertia::render('dashboards/user', [
             'user_summary' => UserDisplay::summary($user),
             'pending_rounds' => $pendingRounds,
             'pending_round_count' => count($pendingRounds),
@@ -173,7 +173,7 @@ final class DashboardController extends Controller
         $pendingRounds = GoodsReceiptRound::query()
             ->with(['inspection.location'])
             ->where('round_status', RoundStatus::WaitingHeadWarehouseSignature)
-            ->latest('hod_signed_at')
+            ->latest('submitted_at')
             ->limit(20)
             ->get()
             ->map(fn (GoodsReceiptRound $round): array => [
@@ -183,14 +183,14 @@ final class DashboardController extends Controller
                 'supplier_name' => $round->inspection->supplier_name,
                 'location_name' => $round->inspection->location?->name,
                 'round_number' => $round->round_number,
-                'submitted_at' => DateFormatter::wib($round->hod_signed_at),
+                'submitted_at' => DateFormatter::wib($round->submitted_at),
             ])
             ->all();
 
         $historyRounds = GoodsReceiptRound::query()
             ->with(['inspection.location'])
-            ->where('round_status', RoundStatus::Signed)
-            ->latest('head_warehouse_signed_at')
+            ->whereIn('round_status', [RoundStatus::WaitingUserSignature, RoundStatus::NeedsRevision, RoundStatus::Signed])
+            ->latest('updated_at')
             ->limit(20)
             ->get()
             ->map(fn (GoodsReceiptRound $round): array => [

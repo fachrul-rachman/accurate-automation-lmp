@@ -36,17 +36,12 @@ export function WarehouseShell({
     const [desktopOpen, setDesktopOpen] = useState(true);
     const [mobileOpen, setMobileOpen] = useState(false);
     const navItems: NavItem[] = [
-        {
-            key: 'pb-search',
-            label: 'Cari PB',
-            icon: Search,
-        },
-        {
-            key: 'rounds',
-            label: 'Round PB',
-            icon: ClipboardList,
-            badge: roundCount,
-        },
+        { key: 'search', label: 'Cari Penerimaan Barang', icon: Search },
+        { key: 'draft', label: 'Draft', icon: ClipboardList },
+        { key: 'revision', label: 'Perlu Perbaikan', icon: ClipboardList },
+        { key: 'process', label: 'Dalam Proses', icon: ClipboardList, badge: roundCount },
+        { key: 'partial', label: 'Parsial', icon: ClipboardList },
+        { key: 'complete', label: 'Selesai', icon: ClipboardList },
     ];
 
     return (
@@ -159,6 +154,7 @@ function SidebarContent({
                 )}
             </div>
             <nav className="flex-1 space-y-1 p-3">
+                {open && <p className="px-3 pb-2 text-xs font-semibold uppercase text-slate-500">Round Penerimaan Barang</p>}
                 {navItems.map((item) => {
                     const Icon = item.icon;
                     const active = current === item.key;

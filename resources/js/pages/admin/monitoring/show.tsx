@@ -1,5 +1,6 @@
-import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Download } from 'lucide-react';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { ArrowLeft, Download, Trash2 } from 'lucide-react';
+import type { FormEvent } from 'react';
 import { AdminShell } from '@/components/admin-shell';
 
 type Item = {
@@ -25,9 +26,9 @@ type Round = {
     specification_matches_po: boolean;
     notes: string | null;
     created_by: string | null;
-    selected_hod: string | null;
-    hod_signed_by: string | null;
-    hod_signed_at: string | null;
+    selected_user: string | null;
+    user_signed_by: string | null;
+    user_signed_at: string | null;
     head_warehouse_signed_by: string | null;
     head_warehouse_signed_at: string | null;
     items: Item[];
@@ -64,10 +65,23 @@ export default function AdminMonitoringShow({
     rounds,
     audit_logs,
 }: Props) {
+    const removal = useForm({
+        confirmation_number: '',
+        reason: '',
+    });
+
+    function removeFromOperations(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        if (window.confirm('Hapus Penerimaan Barang ini dari operasional? Tindakan ini tidak dapat dibatalkan.')) {
+            removal.delete(`/admin/monitoring/${inspection.id}`);
+        }
+    }
+
     return (
         <>
             <Head title={`Monitoring ${inspection.pb_number}`} />
-            <AdminShell current="monitoring" title={`PB ${inspection.pb_number}`}>
+            <AdminShell current="monitoring" title={`Penerimaan Barang ${inspection.pb_number}`}>
                 <div className="mt-5 flex flex-wrap gap-2">
                     <Link
                         href="/admin/monitoring"
@@ -88,9 +102,9 @@ export default function AdminMonitoringShow({
                 </div>
 
                 <section className="mt-5 rounded-lg border border-slate-200 bg-white p-5">
-                    <h2 className="text-base font-semibold">Detail PB</h2>
+                    <h2 className="text-base font-semibold">Detail Penerimaan Barang</h2>
                     <dl className="mt-4 grid gap-4 md:grid-cols-2">
-                        <Info label="Nomor PB" value={inspection.pb_number} />
+                        <Info label="Nomor Penerimaan Barang" value={inspection.pb_number} />
                         <Info
                             label="Nomor PO"
                             value={inspection.po_number ?? '-'}
@@ -100,7 +114,7 @@ export default function AdminMonitoringShow({
                             value={inspection.supplier_name ?? '-'}
                         />
                         <Info
-                            label="Tanggal PB"
+                            label="Tanggal Penerimaan Barang"
                             value={inspection.pb_date ?? '-'}
                         />
                         <Info
@@ -111,9 +125,49 @@ export default function AdminMonitoringShow({
                             label="Dibuat oleh"
                             value={inspection.created_by ?? '-'}
                         />
-                        <Info label="Status PB" value={inspection.pb_status} />
+                        <Info label="Status Penerimaan Barang" value={inspection.pb_status} />
                         <Info label="Status PDF" value={inspection.pdf_status} />
                     </dl>
+                </section>
+
+                <section className="mt-5 rounded-lg border border-red-200 bg-white p-5">
+                    <h2 className="text-base font-semibold text-red-700">Hapus dari Operasional</h2>
+                    <p className="mt-2 text-sm text-slate-600">
+                        Data, foto, dan PDF akan dihapus permanen. Jejak penghapusan tetap disimpan.
+                    </p>
+                    <form onSubmit={removeFromOperations} className="mt-4 grid gap-4 md:grid-cols-2">
+                        <label className="block text-sm">
+                            <span className="font-medium text-slate-700">Alasan</span>
+                            <textarea
+                                value={removal.data.reason}
+                                onChange={(event) => removal.setData('reason', event.target.value)}
+                                required
+                                maxLength={1000}
+                                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+                            />
+                            {removal.errors.reason && <span className="mt-1 block text-red-600">{removal.errors.reason}</span>}
+                        </label>
+                        <label className="block text-sm">
+                            <span className="font-medium text-slate-700">
+                                Ketik ulang {inspection.pb_number}
+                            </span>
+                            <input
+                                value={removal.data.confirmation_number}
+                                onChange={(event) => removal.setData('confirmation_number', event.target.value)}
+                                required
+                                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+                            />
+                            {removal.errors.confirmation_number && <span className="mt-1 block text-red-600">{removal.errors.confirmation_number}</span>}
+                        </label>
+                        <button
+                            type="submit"
+                            disabled={removal.processing}
+                            className="inline-flex w-fit items-center gap-2 rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Hapus dari Operasional
+                        </button>
+                    </form>
                 </section>
 
                 <section className="mt-5 space-y-4">
@@ -144,11 +198,11 @@ export default function AdminMonitoringShow({
                                 />
                                 <Info
                                     label="User"
-                                    value={round.hod_signed_by ?? round.selected_hod ?? '-'}
+                                    value={round.user_signed_by ?? round.selected_user ?? '-'}
                                 />
                                 <Info
                                     label="Tanda tangan User"
-                                    value={round.hod_signed_at ?? '-'}
+                                    value={round.user_signed_at ?? '-'}
                                 />
                                 <Info
                                     label="Kepala Gudang"
@@ -254,7 +308,7 @@ export default function AdminMonitoringShow({
                     <h2 className="text-base font-semibold">Audit Log</h2>
                     {audit_logs.length === 0 ? (
                         <p className="mt-3 text-sm text-slate-500">
-                            Belum ada audit log untuk PB ini.
+                            Belum ada audit log untuk Penerimaan Barang ini.
                         </p>
                     ) : (
                         <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">

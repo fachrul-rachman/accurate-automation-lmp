@@ -39,7 +39,7 @@ type HistoryRound = PendingRound & {
     updated_at: string | null;
 };
 
-export default function HodDashboard({
+export default function UserDashboard({
     user_summary,
     pending_rounds,
     pending_round_count,
@@ -57,7 +57,7 @@ export default function HodDashboard({
     return (
         <>
             <Head title="Dashboard User" />
-            <HodShell
+            <UserShell
                 activeView={activeView}
                 onViewChange={(view) =>
                     setActiveView(view === 'history' ? 'history' : 'pending')
@@ -75,17 +75,17 @@ export default function HodDashboard({
                                     Menunggu tanda tangan
                                 </h2>
                                 <p className="mt-1 text-sm text-slate-500">
-                                    Round PB yang ditujukan ke Anda.
+                                    Penerimaan Barang yang ditujukan ke Anda.
                                 </p>
                             </div>
                             <span className="rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
-                                {pending_round_count} PB
+                                {pending_round_count} Penerimaan Barang
                             </span>
                         </div>
 
                         {pending_rounds.length === 0 ? (
                             <p className="mt-5 rounded-md border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">
-                                Belum ada PB yang menunggu tanda tangan.
+                                Belum ada Penerimaan Barang yang menunggu tindakan.
                             </p>
                         ) : (
                             <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
@@ -93,7 +93,7 @@ export default function HodDashboard({
                                     <thead className="bg-slate-100 text-slate-700">
                                         <tr>
                                             <th className="px-4 py-3">
-                                                Nomor PB
+                                                Nomor Penerimaan Barang
                                             </th>
                                             <th className="px-4 py-3">
                                                 Nomor PO
@@ -137,7 +137,7 @@ export default function HodDashboard({
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <Link
-                                                        href={`/hod/rounds/${round.id}`}
+                                                        href={`/user/rounds/${round.id}`}
                                                         className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                                                     >
                                                         <Eye className="h-4 w-4" />
@@ -161,11 +161,11 @@ export default function HodDashboard({
                                     Riwayat
                                 </h2>
                                 <p className="mt-1 text-sm text-slate-500">
-                                    Round PB yang sudah pernah Anda proses.
+                                    Riwayat Round Penerimaan Barang yang Anda proses.
                                 </p>
                             </div>
                             <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
-                                {history_round_count} PB
+                                {history_round_count} Penerimaan Barang
                             </span>
                         </div>
 
@@ -178,7 +178,7 @@ export default function HodDashboard({
                         )}
                     </section>
                 )}
-            </HodShell>
+            </UserShell>
         </>
     );
 }
@@ -195,7 +195,7 @@ function RoundTable({
             <table className="w-full text-left text-sm">
                 <thead className="bg-slate-100 text-slate-700">
                     <tr>
-                        <th className="px-4 py-3">Nomor PB</th>
+                        <th className="px-4 py-3">Nomor Penerimaan Barang</th>
                         <th className="px-4 py-3">Nomor PO</th>
                         <th className="px-4 py-3">Lokasi</th>
                         <th className="px-4 py-3">Supplier</th>
@@ -238,7 +238,7 @@ function RoundTable({
                             </td>
                             <td className="px-4 py-3">
                                 <Link
-                                    href={`/hod/rounds/${round.id}`}
+                                    href={`/user/rounds/${round.id}`}
                                     className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                                 >
                                     <Eye className="h-4 w-4" />
@@ -274,7 +274,7 @@ type NavItem = {
     badge: number;
 };
 
-function HodShell({
+function UserShell({
     activeView,
     onViewChange,
     pendingCount,
@@ -296,7 +296,7 @@ function HodShell({
     const navItems: NavItem[] = [
         {
             key: 'pending',
-            label: 'Menunggu Tanda Tangan',
+            label: 'Menunggu Saya',
             icon: Clock,
             badge: pendingCount,
         },
@@ -328,7 +328,7 @@ function HodShell({
                         onClick={() => setMobileOpen(false)}
                     />
                     <aside className="relative h-full w-72 border-r border-slate-200 bg-white shadow-xl">
-                        <HodSidebar
+                        <UserSidebar
                             navItems={navItems}
                             activeView={activeView}
                             open
@@ -352,7 +352,7 @@ function HodShell({
             <aside
                 className={`fixed inset-y-0 left-0 hidden border-r border-slate-200 bg-white transition-all lg:block ${desktopOpen ? 'w-64' : 'w-20'}`}
             >
-                <HodSidebar
+                <UserSidebar
                     navItems={navItems}
                     activeView={activeView}
                     open={desktopOpen}
@@ -390,7 +390,7 @@ function HodShell({
     );
 }
 
-function HodSidebar({
+function UserSidebar({
     navItems,
     activeView,
     open,
@@ -414,6 +414,7 @@ function HodSidebar({
                 )}
             </div>
             <nav className="flex-1 space-y-1 p-3">
+                {open && <p className="px-3 pb-2 text-xs font-semibold uppercase text-slate-500">Round Penerimaan Barang</p>}
                 {navItems.map((item) => {
                     const Icon = item.icon;
                     const active = activeView === item.key;

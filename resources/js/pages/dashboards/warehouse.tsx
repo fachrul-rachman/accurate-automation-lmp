@@ -37,6 +37,16 @@ type ActiveRound = {
     continue_url: string | null;
 };
 
+function viewLabel(view: 'draft' | 'revision' | 'process' | 'partial' | 'complete') {
+    return {
+        draft: 'Draft',
+        revision: 'Perlu Perbaikan',
+        process: 'Dalam Proses',
+        partial: 'Parsial',
+        complete: 'Selesai',
+    }[view];
+}
+
 export default function WarehouseDashboard({
     user_summary,
     locations,
@@ -46,9 +56,17 @@ export default function WarehouseDashboard({
     pb_number,
 }: Props) {
     const online = useOnlineStatus();
-    const [activeView, setActiveView] = useState<'pb-search' | 'rounds'>(
-        'pb-search',
-    );
+    const [activeView, setActiveView] = useState<
+        'search' | 'draft' | 'revision' | 'process' | 'partial' | 'complete'
+    >('search');
+    const visibleRounds = active_rounds.filter((round) => {
+        if (activeView === 'draft') return round.status === 'DRAFT';
+        if (activeView === 'revision') return round.status === 'NEEDS_REVISION';
+        if (activeView === 'process') return ['WAITING_HEAD_WAREHOUSE_SIGNATURE', 'WAITING_USER_SIGNATURE'].includes(round.status);
+        if (activeView === 'partial') return round.completion_result === 'PARTIAL';
+        if (activeView === 'complete') return round.completion_result === 'COMPLETE' || round.pdf_download_url !== null;
+        return false;
+    });
     const { data, setData, post, processing, errors } = useForm({
         location_id: selected_location_id ?? locations[0]?.id ?? '',
         pb_number: pb_number ?? '',
@@ -67,22 +85,22 @@ export default function WarehouseDashboard({
                 onViewChange={(view) =>
                     setActiveView(view === 'rounds' ? 'rounds' : 'pb-search')
                 }
-                title={activeView === 'rounds' ? 'Round PB' : 'Cari PB'}
+                title={activeView === 'search' ? 'Cari Penerimaan Barang' : viewLabel(activeView)}
                 roundCount={active_round_count}
                 userSummary={user_summary}
             >
                 <div className="mt-6">
-                    {activeView === 'pb-search' && (
+                    {activeView === 'search' && (
                         <section
                             id="pb-search"
                             className="scroll-mt-6 rounded-lg border border-slate-200 bg-white p-5"
                         >
                             <div className="mb-4">
                                 <h2 className="text-base font-semibold">
-                                    Cari PB Accurate
+                                    Cari Penerimaan Barang Accurate
                                 </h2>
                                 <p className="mt-1 text-sm text-slate-500">
-                                    Pilih lokasi lalu masukkan nomor PB.
+                                    Pilih lokasi lalu masukkan nomor Penerimaan Barang.
                                 </p>
                             </div>
                             <form
@@ -92,7 +110,7 @@ export default function WarehouseDashboard({
                                 {!online && (
                                     <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 md:col-span-3">
                                         Koneksi internet diperlukan untuk cari
-                                        PB Accurate.
+                                        Penerimaan Barang Accurate.
                                     </p>
                                 )}
                                 <label className="block text-sm">
@@ -126,7 +144,7 @@ export default function WarehouseDashboard({
                                 </label>
                                 <label className="block text-sm">
                                     <span className="font-medium text-slate-700">
-                                        Nomor PB
+                                        Nomor Penerimaan Barang
                                     </span>
                                     <input
                                         type="text"
@@ -138,7 +156,7 @@ export default function WarehouseDashboard({
                                             )
                                         }
                                         className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-                                        placeholder="Contoh: PB-001"
+                                        placeholder="Contoh: RI-001"
                                     />
                                     {errors.pb_number && (
                                         <span className="mt-1 block text-red-600">
@@ -156,7 +174,7 @@ export default function WarehouseDashboard({
                                     className="inline-flex h-10 items-center justify-center gap-2 self-end rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-70"
                                 >
                                     <Search className="h-4 w-4" />
-                                    Cari PB
+                                    Cari Penerimaan Barang
                                 </button>
                             </form>
                             {locations.length === 0 && (
@@ -167,7 +185,7 @@ export default function WarehouseDashboard({
                         </section>
                     )}
 
-                    {activeView === 'rounds' && (
+                    {activeView !== 'search' && (
                         <section
                             id="rounds"
                             className="scroll-mt-6 rounded-lg border border-slate-200 bg-white p-5"
@@ -175,20 +193,20 @@ export default function WarehouseDashboard({
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div>
                                     <h2 className="text-base font-semibold">
-                                        Round PB
+                                        {viewLabel(activeView)}
                                     </h2>
                                     <p className="mt-1 text-sm text-slate-500">
-                                        Status PB yang sudah pernah disimpan.
+                                        Status Penerimaan Barang yang sudah pernah disimpan.
                                     </p>
                                 </div>
                                 <span className="rounded-full bg-teal-50 px-3 py-1 text-sm font-semibold text-teal-700">
-                                    {active_round_count} PB
+                                    {visibleRounds.length} Penerimaan Barang
                                 </span>
                             </div>
 
-                            {active_rounds.length === 0 ? (
+                            {visibleRounds.length === 0 ? (
                                 <p className="mt-5 rounded-md border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">
-                                    Belum ada PB yang disimpan.
+                                    Belum ada Penerimaan Barang yang disimpan.
                                 </p>
                             ) : (
                                 <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
@@ -196,7 +214,7 @@ export default function WarehouseDashboard({
                                         <thead className="bg-slate-100 text-slate-700">
                                             <tr>
                                                 <th className="px-4 py-3">
-                                                    Nomor PB
+                                                    Nomor Penerimaan Barang
                                                 </th>
                                                 <th className="px-4 py-3">
                                                     Nomor PO
@@ -222,7 +240,7 @@ export default function WarehouseDashboard({
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {active_rounds.map((round) => (
+                                            {visibleRounds.map((round) => (
                                                 <tr
                                                     key={round.id}
                                                     className="border-t border-slate-200"
@@ -327,7 +345,9 @@ function StatusChip({
     const className =
         {
             DRAFT: 'border-amber-200 bg-amber-50 text-amber-700',
-            WAITING_HOD_SIGNATURE: 'border-sky-200 bg-sky-50 text-sky-700',
+            WAITING_HEAD_WAREHOUSE_SIGNATURE: 'border-sky-200 bg-sky-50 text-sky-700',
+            WAITING_USER_SIGNATURE: 'border-violet-200 bg-violet-50 text-violet-700',
+            NEEDS_REVISION: 'border-red-200 bg-red-50 text-red-700',
             WAITING_HEAD_WAREHOUSE_SIGNATURE:
                 'border-violet-200 bg-violet-50 text-violet-700',
             SIGNED: 'border-emerald-200 bg-emerald-50 text-emerald-700',

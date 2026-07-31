@@ -63,9 +63,9 @@ final class UserManagementController extends Controller
             request: $request,
         );
 
-        if ($user->role === UserRole::Hod) {
+        if ($user->role === UserRole::User) {
             $this->auditLogs->write(
-                'HOD_MAPPING_UPDATED',
+                'USER_LOCATION_ACCESS_UPDATED',
                 $request->user(),
                 $user,
                 "Akses lokasi user {$user->name} diatur.",
@@ -120,9 +120,9 @@ final class UserManagementController extends Controller
             request: $request,
         );
 
-        if ($oldValues['location_ids'] !== $newValues['location_ids'] && $user->role === UserRole::Hod) {
+        if ($oldValues['location_ids'] !== $newValues['location_ids'] && $user->role === UserRole::User) {
             $this->auditLogs->write(
-                'HOD_MAPPING_UPDATED',
+                'USER_LOCATION_ACCESS_UPDATED',
                 $request->user(),
                 $user,
                 "Akses lokasi user {$user->name} diperbarui.",

@@ -8,7 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Warehouse\StoreRoundRequest;
 use App\Models\GoodsReceiptRound;
 use App\Models\User;
-use App\Services\AuditLogService;
+use App\Services\AccurateReceiveItemService;
 use App\Services\GoodsReceiptRoundService;
 use App\Support\DateFormatter;
 use App\Support\RoundItemQuantity;
@@ -23,7 +23,7 @@ final class RoundController extends Controller
 {
     public function __construct(
         private readonly GoodsReceiptRoundService $rounds,
-        private readonly AuditLogService $auditLogs,
+        private readonly AccurateReceiveItemService $accurateReceiveItems,
     ) {}
 
     public function store(StoreRoundRequest $request): RedirectResponse
@@ -54,7 +54,8 @@ final class RoundController extends Controller
                 'specification_matches_po' => $round->specification_matches_po,
                 'notes' => $round->notes,
                 'submitted_at' => DateFormatter::wib($round->submitted_at),
-                'selected_hod_id' => $round->selected_hod_id,
+                'selected_user_id' => $round->selected_user_id,
+                'rejection_reason' => $round->rejection_reason,
                 'inspection' => [
                     'pb_number' => $round->inspection->pb_number,
                     'po_number' => $round->inspection->po_number,
@@ -76,7 +77,10 @@ final class RoundController extends Controller
                     'photo_count' => $item->photos->count(),
                 ])->all(),
                 'partial_reasons' => RoundPartialReason::forRound($round),
-                'can_edit' => $round->round_status === RoundStatus::Draft,
+                'can_edit' => in_array($round->round_status, [RoundStatus::Draft, RoundStatus::NeedsRevision], true),
+                'edit_url' => $round->round_status === RoundStatus::NeedsRevision
+                    ? route('warehouse.rounds.edit', $round)
+                    : null,
                 'pdf_download_url' => $round->inspection->pdfExport === null
                     ? null
                     : route('files.pdf-exports.show', $round->inspection->pdfExport),
@@ -90,29 +94,61 @@ final class RoundController extends Controller
         ]);
     }
 
-    public function update(Request $request, GoodsReceiptRound $round): RedirectResponse
+    public function edit(Request $request, GoodsReceiptRound $round): Response|RedirectResponse
     {
         $this->authorizeWarehouseAccess($request, $round);
-        abort_unless($round->round_status === RoundStatus::Draft, 403);
+        abort_unless($round->round_status === RoundStatus::NeedsRevision, 403);
+        $round->load(['inspection.location', 'items']);
 
-        $validated = $request->validate([
-            'specification_matches_po' => ['sometimes', 'boolean'],
-            'notes' => ['nullable', 'string', 'max:2000'],
+        try {
+            $result = $this->accurateReceiveItems->findReceiveItemDetail($round->inspection->location, $round->inspection->pb_number);
+        } catch (RuntimeException $exception) {
+            return back()->withErrors(['round' => $exception->getMessage()]);
+        }
+
+        return Inertia::render('warehouse/pb-search/result', [
+            'location' => [
+                'id' => $round->inspection->location->id,
+                'name' => $round->inspection->location->name,
+            ],
+            'result' => [
+                ...$result,
+                'items' => array_map(fn (array $item): array => [...$item, 'qty_remaining' => null], $result['items']),
+            ],
+            'users' => $round->inspection->location->users()
+                ->where('role', UserRole::User->value)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['users.id', 'users.name'])
+                ->map(fn ($user): array => ['id' => $user->id, 'name' => $user->name])
+                ->all(),
+            'editing_round' => [
+                'id' => $round->id,
+                'selected_user_id' => $round->selected_user_id,
+                'specification_matches_po' => $round->specification_matches_po,
+                'notes' => $round->notes,
+                'rejection_reason' => $round->rejection_reason,
+                'items' => $round->items->map(fn ($item): array => [
+                    'accurate_detail_item_id' => $item->accurate_detail_item_id,
+                    'quality_status' => $item->quality_status->value,
+                    'quantity_status' => $item->quantity_status->value,
+                    'received_qty' => $item->received_qty,
+                    'damaged_qty' => $item->damaged_qty,
+                ])->all(),
+            ],
         ]);
+    }
 
-        $oldValues = $round->only(['specification_matches_po', 'notes']);
-        $round->update($validated);
-        $round->refresh();
+    public function update(StoreRoundRequest $request, GoodsReceiptRound $round): RedirectResponse
+    {
+        $this->authorizeWarehouseAccess($request, $round);
+        abort_unless($round->round_status === RoundStatus::NeedsRevision, 403);
 
-        $this->auditLogs->write(
-            'ROUND_UPDATED',
-            $request->user(),
-            $round,
-            "Draft round {$round->round_number} PB {$round->inspection->pb_number} diperbarui.",
-            oldValues: $oldValues,
-            newValues: $round->only(['specification_matches_po', 'notes']),
-            request: $request,
-        );
+        try {
+            $this->rounds->reviseRound($round, $request->location(), $request->user(), $request->validated());
+        } catch (RuntimeException $exception) {
+            return back()->withErrors(['round' => $exception->getMessage()])->withInput();
+        }
 
         return redirect()->route('warehouse.rounds.show', $round);
     }
@@ -122,7 +158,7 @@ final class RoundController extends Controller
         $this->authorizeWarehouseAccess($request, $round);
 
         try {
-            $this->rounds->submitToHod($round);
+            $this->rounds->submitToHeadWarehouse($round);
         } catch (RuntimeException $exception) {
             return back()->withErrors(['round' => $exception->getMessage()]);
         }

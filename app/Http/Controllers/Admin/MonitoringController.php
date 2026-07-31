@@ -4,18 +4,29 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\GoodsReceiptInspectionStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\RemoveInspectionRequest;
 use App\Models\AuditLog;
 use App\Models\GoodsReceiptInspection;
 use App\Models\GoodsReceiptRound;
 use App\Models\GoodsReceiptRoundItem;
 use App\Support\DateFormatter;
 use App\Support\RoundItemQuantity;
+use App\Services\AuditLogService;
+use App\Services\R2StorageService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
 final class MonitoringController extends Controller
 {
+    public function __construct(
+        private readonly AuditLogService $auditLogs,
+        private readonly R2StorageService $storage,
+    ) {}
+
     public function index(Request $request): Response
     {
         $status = $request->query('status');
@@ -77,8 +88,8 @@ final class MonitoringController extends Controller
             'rounds.items.photos',
             'rounds.attachments',
             'rounds.creator',
-            'rounds.selectedHod',
-            'rounds.hodSigner',
+            'rounds.selectedUser',
+            'rounds.userSigner',
             'rounds.headWarehouseSigner',
         ]);
 
@@ -130,6 +141,45 @@ final class MonitoringController extends Controller
         ]);
     }
 
+    public function destroy(RemoveInspectionRequest $request, GoodsReceiptInspection $inspection): RedirectResponse
+    {
+        $inspection->load(['location', 'pdfExport', 'rounds.attachments', 'rounds.items.photos']);
+        $keys = $inspection->rounds
+            ->flatMap(fn (GoodsReceiptRound $round) => [
+                ...$round->attachments->pluck('r2_key')->all(),
+                ...$round->items->flatMap->photos->pluck('r2_key')->all(),
+            ])
+            ->when($inspection->pdfExport !== null, fn ($keys) => $keys->push($inspection->pdfExport->r2_key))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        DB::transaction(function () use ($request, $inspection): void {
+            $this->auditLogs->write(
+                'GOODS_RECEIPT_REMOVED',
+                $request->user(),
+                null,
+                "Penerimaan Barang {$inspection->pb_number} dihapus dari operasional.",
+                metadata: [
+                    'pb_number' => $inspection->pb_number,
+                    'location' => $inspection->location?->name,
+                    'last_status' => $inspection->pb_status->value,
+                    'reason' => $request->validated('reason'),
+                ],
+                request: $request,
+            );
+
+            $inspection->delete();
+        });
+
+        foreach (array_unique([$this->storage->disk(), 'public']) as $disk) {
+            Storage::disk($disk)->delete($keys);
+        }
+
+        return redirect()->route('admin.monitoring.index');
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -145,9 +195,9 @@ final class MonitoringController extends Controller
             'specification_matches_po' => $round->specification_matches_po,
             'notes' => $round->notes,
             'created_by' => $round->creator?->name,
-            'selected_hod' => $round->selectedHod?->name,
-            'hod_signed_by' => $round->hodSigner?->name,
-            'hod_signed_at' => DateFormatter::wib($round->hod_signed_at),
+            'selected_user' => $round->selectedUser?->name,
+            'user_signed_by' => $round->userSigner?->name,
+            'user_signed_at' => DateFormatter::wib($round->user_signed_at),
             'head_warehouse_signed_by' => $round->headWarehouseSigner?->name,
             'head_warehouse_signed_at' => DateFormatter::wib($round->head_warehouse_signed_at),
             'items' => $round->items->map(fn (GoodsReceiptRoundItem $item): array => $this->itemPayload($item, $remainingByItem[$item->id] ?? 0.0))->all(),
@@ -180,20 +230,23 @@ final class MonitoringController extends Controller
     {
         return match ($event) {
             'ROUND_CREATED' => 'Round dibuat',
-            'ROUND_SUBMITTED_TO_HOD' => 'Round dikirim ke user',
-            'HOD_SIGNED' => 'User menandatangani',
+            'ROUND_SUBMITTED_TO_HEAD_WAREHOUSE' => 'Round dikirim ke Head Warehouse',
             'HEAD_WAREHOUSE_SIGNED' => 'Kepala gudang menandatangani',
-            'PB_IMPORTED' => 'PB diimport',
+            'USER_SIGNED' => 'User menandatangani',
+            'HEAD_WAREHOUSE_REJECTED' => 'Head Warehouse menolak',
+            'USER_REJECTED' => 'User menolak',
+            'PB_IMPORTED' => 'Penerimaan Barang diimpor',
             'ROUND_UPDATED' => 'Draft round diperbarui',
-            'PB_MARKED_COMPLETE' => 'PB lengkap',
-            'PB_MARKED_PARTIAL' => 'PB sebagian',
+            'PB_MARKED_COMPLETE' => 'Penerimaan Barang lengkap',
+            'PB_MARKED_PARTIAL' => 'Penerimaan Barang sebagian',
             'PDF_GENERATED' => 'PDF dibuat',
             'PDF_DOWNLOADED' => 'PDF diunduh',
             'USER_CREATED' => 'User dibuat',
             'USER_UPDATED' => 'User diperbarui',
             'LOCATION_CREATED' => 'Lokasi dibuat',
             'LOCATION_UPDATED' => 'Lokasi diperbarui',
-            'HOD_MAPPING_UPDATED' => 'Akses lokasi user diperbarui',
+            'USER_LOCATION_ACCESS_UPDATED' => 'Akses lokasi user diperbarui',
+            'GOODS_RECEIPT_REMOVED' => 'Penerimaan Barang dihapus dari operasional',
             default => str($event)->lower()->replace('_', ' ')->title()->toString(),
         };
     }

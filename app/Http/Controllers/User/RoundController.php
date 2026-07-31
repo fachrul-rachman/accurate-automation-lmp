@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Hod;
+namespace App\Http\Controllers\User;
 
 use App\Enums\RoundStatus;
 use App\Enums\UserRole;
@@ -23,7 +23,7 @@ final class RoundController extends Controller
 
     public function show(Request $request, GoodsReceiptRound $round): Response
     {
-        $this->authorizeHodAccess($request, $round);
+        $this->authorizeUserAccess($request, $round);
 
         $round->load(['inspection.location', 'items.photos', 'attachments']);
         $remainingByItem = RoundItemQuantity::remainingByRoundItem($round);
@@ -38,7 +38,9 @@ final class RoundController extends Controller
                 'specification_matches_po' => $round->specification_matches_po,
                 'notes' => $round->notes,
                 'submitted_at' => DateFormatter::wib($round->submitted_at),
-                'hod_signed_at' => DateFormatter::wib($round->hod_signed_at),
+                'head_warehouse_signed_at' => DateFormatter::wib($round->head_warehouse_signed_at),
+                'user_signed_at' => DateFormatter::wib($round->user_signed_at),
+                'rejection_reason' => $round->rejection_reason,
                 'inspection' => [
                     'pb_number' => $round->inspection->pb_number,
                     'po_number' => $round->inspection->po_number,
@@ -72,30 +74,45 @@ final class RoundController extends Controller
                     'url' => route('files.round-attachments.show', $attachment),
                 ])->all(),
                 'partial_reasons' => RoundPartialReason::forRound($round),
-                'can_sign' => $round->round_status === RoundStatus::WaitingHodSignature,
+                'can_sign' => $round->round_status === RoundStatus::WaitingUserSignature,
+                'can_reject' => $round->round_status === RoundStatus::WaitingUserSignature,
             ],
         ]);
     }
 
     public function sign(Request $request, GoodsReceiptRound $round): RedirectResponse
     {
-        $this->authorizeHodAccess($request, $round);
+        $this->authorizeUserAccess($request, $round);
 
         try {
-            $this->rounds->signByHod($round, $request->user());
+            $this->rounds->signByUser($round, $request->user());
         } catch (RuntimeException $exception) {
             return back()->withErrors(['round' => $exception->getMessage()]);
         }
 
-        return redirect()->route('hod.rounds.show', $round);
+        return redirect()->route('user.rounds.show', $round);
     }
 
-    private function authorizeHodAccess(Request $request, GoodsReceiptRound $round): void
+    public function reject(Request $request, GoodsReceiptRound $round): RedirectResponse
+    {
+        $this->authorizeUserAccess($request, $round);
+        $reason = $request->validate(['reason' => ['required', 'string', 'max:1000']])['reason'];
+
+        try {
+            $this->rounds->rejectByUser($round, $request->user(), $reason);
+        } catch (RuntimeException $exception) {
+            return back()->withErrors(['round' => $exception->getMessage()]);
+        }
+
+        return redirect()->route('user.rounds.show', $round);
+    }
+
+    private function authorizeUserAccess(Request $request, GoodsReceiptRound $round): void
     {
         $user = $request->user();
 
-        abort_unless($user instanceof User && $user->role === UserRole::Hod, 403);
-        abort_unless($round->selected_hod_id === $user->id, 403);
+        abort_unless($user instanceof User && $user->role === UserRole::User, 403);
+        abort_unless($round->selected_user_id === $user->id, 403);
     }
 
     private function roundStatusLabel(GoodsReceiptRound $round): string
