@@ -438,3 +438,85 @@ it('lets involved users and Head Warehouse download the final PDF', function () 
     $this->actingAs($headWarehouse)->get(route('files.pdf-exports.show', $pdf))->assertOk();
     $this->actingAs($otherUser)->get(route('files.pdf-exports.show', $pdf))->assertForbidden();
 });
+
+it('keeps completed items disabled and formats quantities when revising a later round', function () {
+    Config::set('services.accurate.api_token', 'test-token');
+    Config::set('services.accurate.signature_secret', 'test-secret');
+
+    $location = Location::factory()->create(['name' => 'Karawang']);
+    $warehouse = revisedWorkflowUser(UserRole::Warehouse, $location);
+    $user = revisedWorkflowUser(UserRole::User, $location);
+    $roundOne = revisedWorkflowRound($location, $warehouse, $user, RoundStatus::Signed, 'RCV-THREE-ROUNDS');
+    $inspection = $roundOne->inspection;
+    $inspection->update(['accurate_raw_json' => [
+        'id' => 1,
+        'number' => 'RCV-THREE-ROUNDS',
+        'detailItem' => [[
+            'id' => 1,
+            'item' => ['no' => 'ITEM-1', 'name' => 'Item A'],
+            'detailName' => 'Item A',
+            'quantity' => 10,
+            'itemUnit' => ['name' => 'PCS'],
+        ]],
+    ]]);
+    $roundOne->items()->update(['qty' => 10, 'received_qty' => 6, 'quantity_status' => 'PARTIAL']);
+
+    $roundTwo = GoodsReceiptRound::query()->create([
+        'inspection_id' => $inspection->id,
+        'round_number' => 2,
+        'created_by' => $warehouse->id,
+        'selected_user_id' => $user->id,
+        'round_status' => RoundStatus::Signed,
+        'completion_result' => 'COMPLETE',
+        'specification_matches_po' => true,
+    ]);
+    GoodsReceiptRoundItem::query()->create([
+        'round_id' => $roundTwo->id,
+        'line_number' => 1,
+        'accurate_detail_item_id' => '1',
+        'item_code' => 'ITEM-1',
+        'item_name' => 'Item A',
+        'qty' => 10,
+        'unit' => 'PCS',
+        'quality_status' => 'GOOD',
+        'quantity_status' => 'PARTIAL',
+        'received_qty' => 4,
+        'damaged_qty' => 0,
+    ]);
+
+    $roundThree = GoodsReceiptRound::query()->create([
+        'inspection_id' => $inspection->id,
+        'round_number' => 3,
+        'created_by' => $warehouse->id,
+        'selected_user_id' => $user->id,
+        'round_status' => RoundStatus::NeedsRevision,
+        'specification_matches_po' => true,
+        'delivery_note_number' => 'SJ-3',
+    ]);
+    GoodsReceiptRoundItem::query()->create([
+        'round_id' => $roundThree->id,
+        'line_number' => 1,
+        'accurate_detail_item_id' => '1',
+        'item_code' => 'ITEM-1',
+        'item_name' => 'Item A',
+        'qty' => 10,
+        'unit' => 'PCS',
+        'quality_status' => 'GOOD',
+        'quantity_status' => 'MATCH',
+        'received_qty' => 10,
+        'damaged_qty' => 0,
+    ]);
+
+    Http::fake([
+        '*/accurate/api/receive-item/list.do*' => Http::response(['s' => true, 'd' => [['id' => 1]]]),
+        '*/accurate/api/receive-item/detail.do*' => Http::response(['s' => true, 'd' => $inspection->accurate_raw_json]),
+    ]);
+
+    $this->actingAs($warehouse)
+        ->get(route('warehouse.rounds.edit', $roundThree))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('result.items.0.qty_remaining', 0)
+            ->where('result.items.0.is_complete', true)
+            ->where('editing_round.items.0.received_qty', 10.0)
+            ->where('editing_round.items.0.damaged_qty', 0.0));
+});
