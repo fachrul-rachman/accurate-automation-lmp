@@ -79,21 +79,67 @@ final class GoodsReceiptRoundService
             throw new RuntimeException('Nomor Penerimaan Barang tidak sesuai.');
         }
 
-        $oldKeys = [
-            ...$round->attachments->pluck('r2_key')->all(),
-            ...$round->items->flatMap->photos->pluck('r2_key')->all(),
-        ];
+        $keysToDelete = [];
 
-        $updated = DB::transaction(function () use ($round, $data, $detail, $warehouse): GoodsReceiptRound {
-            $round->items()->delete();
-            $round->attachments()->delete();
+        $updated = DB::transaction(function () use ($round, $data, $detail, $warehouse, &$keysToDelete): GoodsReceiptRound {
             $round->update([
                 'selected_user_id' => $data['selected_user_id'],
                 'specification_matches_po' => (bool) $data['specification_matches_po'],
                 'notes' => $data['notes'] ?? null,
                 'delivery_note_number' => $data['delivery_note_number'],
             ]);
-            $this->storeRoundContents($round, $detail, $data);
+
+            $deletedPhotos = $round->items->flatMap(fn (GoodsReceiptRoundItem $item) => $item->photos)->whereIn('id', $data['delete_photo_ids'] ?? []);
+            $deletedAttachments = $round->attachments->whereIn('id', $data['delete_attachment_ids'] ?? []);
+            $keysToDelete = [...$deletedPhotos->pluck('r2_key')->all(), ...$deletedAttachments->pluck('r2_key')->all()];
+            $deletedPhotos->each->delete();
+            $deletedAttachments->each->delete();
+
+            foreach ([
+                'delivery_note_photo' => RoundAttachmentType::DeliveryNote,
+                'receiver_photo' => RoundAttachmentType::ReceiverPhoto,
+            ] as $field => $type) {
+                if (($data[$field] ?? null) instanceof UploadedFile) {
+                    $replaced = $round->attachments()->where('attachment_type', $type->value)->get();
+                    $keysToDelete = [...$keysToDelete, ...$replaced->pluck('r2_key')->all()];
+                    $replaced->each->delete();
+                    $this->storeRoundAttachment($round, $data[$field], $type);
+                }
+            }
+
+            $keptItemIds = [];
+
+            foreach ($data['items'] as $index => $itemInput) {
+                if (! is_array($itemInput) || ! (bool) ($itemInput['is_checked'] ?? true)) {
+                    continue;
+                }
+
+                $accurateItem = $this->findAccurateItem($detail['items'], (string) $itemInput['accurate_detail_item_id']);
+                $roundItem = $round->items()->where('accurate_detail_item_id', (string) $itemInput['accurate_detail_item_id'])->first();
+                $values = $this->roundItemValues($round, $accurateItem, $itemInput, $index + 1);
+
+                if ($roundItem === null) {
+                    $roundItem = GoodsReceiptRoundItem::query()->create(['round_id' => $round->id, ...$values]);
+                } else {
+                    $roundItem->update($values);
+                }
+
+                $keptItemIds[] = $roundItem->id;
+
+                foreach ($this->uploadedFiles($itemInput, 'item_photo', 'item_photos') as $file) {
+                    $this->storeItemPhoto($roundItem, $file, RoundItemPhotoType::Item);
+                }
+
+                if (($itemInput['quality_status'] ?? null) === QualityStatus::Damaged->value) {
+                    foreach ($this->uploadedFiles($itemInput, 'damage_photo', 'damage_photos') as $file) {
+                        $this->storeItemPhoto($roundItem, $file, RoundItemPhotoType::Damage);
+                    }
+                }
+            }
+
+            $removedItems = $round->items()->with('photos')->whereNotIn('id', $keptItemIds)->get();
+            $keysToDelete = [...$keysToDelete, ...$removedItems->flatMap(fn (GoodsReceiptRoundItem $item) => $item->photos)->pluck('r2_key')->all()];
+            $removedItems->each->delete();
 
             $this->auditLogs->write(
                 'ROUND_REVISED',
@@ -105,7 +151,7 @@ final class GoodsReceiptRoundService
             return $round->refresh();
         });
 
-        Storage::disk($this->storage->disk())->delete($oldKeys);
+        Storage::disk($this->storage->disk())->delete(array_unique($keysToDelete));
 
         return $updated;
     }
@@ -448,21 +494,38 @@ final class GoodsReceiptRoundService
      */
     private function createRoundItem(GoodsReceiptRound $round, array $accurateItem, array $itemInput, int $lineNumber): GoodsReceiptRoundItem
     {
+        return GoodsReceiptRoundItem::query()->create([
+            'round_id' => $round->id,
+            ...$this->roundItemValues($round, $accurateItem, $itemInput, $lineNumber),
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $accurateItem
+     * @param  array<string, mixed>  $itemInput
+     * @return array<string, mixed>
+     */
+    private function roundItemValues(GoodsReceiptRound $round, array $accurateItem, array $itemInput, int $lineNumber): array
+    {
         $qty = (float) $accurateItem['quantity'];
+        $remainingQty = $this->remainingQuantity($round, $accurateItem);
         $quantityStatus = QuantityStatus::from((string) $itemInput['quantity_status']);
-        $receivedQty = $quantityStatus === QuantityStatus::Match ? $qty : (float) $itemInput['received_qty'];
+        $receivedQty = $quantityStatus === QuantityStatus::Match ? $remainingQty : (float) $itemInput['received_qty'];
         $damagedQty = (float) ($itemInput['damaged_qty'] ?? 0);
 
-        if ($receivedQty > $qty) {
-            throw new RuntimeException('Received quantity tidak boleh lebih besar dari quantity Accurate.');
+        if ($remainingQty <= 0) {
+            throw new RuntimeException('Item ini sudah lengkap dan tidak dapat diterima lagi.');
+        }
+
+        if ($receivedQty > $remainingQty) {
+            throw new RuntimeException('Received quantity tidak boleh lebih besar dari quantity sisa.');
         }
 
         if ($damagedQty > $receivedQty) {
             throw new RuntimeException('Damaged quantity tidak boleh lebih besar dari received quantity.');
         }
 
-        return GoodsReceiptRoundItem::query()->create([
-            'round_id' => $round->id,
+        return [
             'line_number' => $lineNumber,
             'accurate_detail_item_id' => $accurateItem['accurate_item_row_id'],
             'accurate_item_id' => null,
@@ -475,7 +538,25 @@ final class GoodsReceiptRoundService
             'quantity_status' => $quantityStatus,
             'received_qty' => $receivedQty,
             'damaged_qty' => $damagedQty,
-        ]);
+        ];
+    }
+
+    /** @param array<string, mixed> $accurateItem */
+    private function remainingQuantity(GoodsReceiptRound $round, array $accurateItem): float
+    {
+        $goodQty = GoodsReceiptRoundItem::query()
+            ->whereHas('round', fn ($query) => $query
+                ->where('inspection_id', $round->inspection_id)
+                ->where('round_status', RoundStatus::Signed->value))
+            ->when(
+                $accurateItem['accurate_item_row_id'] !== null,
+                fn ($query) => $query->where('accurate_detail_item_id', (string) $accurateItem['accurate_item_row_id']),
+                fn ($query) => $query->where('item_code', $accurateItem['item_no'])
+            )
+            ->get()
+            ->sum(fn (GoodsReceiptRoundItem $item): float => max(0, (float) $item->received_qty - (float) $item->damaged_qty));
+
+        return max(0, (float) $accurateItem['quantity'] - $goodQty);
     }
 
     private function storeRoundAttachment(GoodsReceiptRound $round, UploadedFile $file, RoundAttachmentType $type): void

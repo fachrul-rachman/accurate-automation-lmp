@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import {
     CheckCircle2,
     Clock,
+    Download,
     Eye,
     LogOut,
     Menu,
@@ -20,6 +21,7 @@ type PendingRound = {
     location_name: string | null;
     round_number: number;
     submitted_at: string | null;
+    pdf_download_url: string | null;
 };
 
 type HistoryRound = PendingRound & {
@@ -186,6 +188,15 @@ function RoundTable({
                                     <Eye className="h-4 w-4" />
                                     Detail
                                 </Link>
+                                {round.pdf_download_url && (
+                                    <a
+                                        href={round.pdf_download_url}
+                                        className="ml-2 inline-flex items-center gap-2 rounded-md bg-teal-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-teal-800"
+                                    >
+                                        <Download className="h-4 w-4" />
+                                        PDF
+                                    </a>
+                                )}
                             </td>
                         </tr>
                     ))}

@@ -224,11 +224,16 @@ it('lets Admin remove a final goods receipt from operations', function () {
 it('shows Round Penerimaan Barang submenus and business terminology', function () {
     $warehouseShell = file_get_contents(resource_path('js/components/warehouse-shell.tsx'));
     $adminShell = file_get_contents(resource_path('js/components/admin-shell.tsx'));
+    $warehouseDashboard = file_get_contents(resource_path('js/pages/dashboards/warehouse.tsx'));
+    $pbResult = file_get_contents(resource_path('js/pages/warehouse/pb-search/result.tsx'));
     $headWarehouseDashboard = file_get_contents(resource_path('js/pages/dashboards/head-warehouse.tsx'));
     $userDashboard = file_get_contents(resource_path('js/pages/dashboards/user.tsx'));
 
     expect($warehouseShell)->toContain('Round Penerimaan Barang', 'Perlu Perbaikan', 'Dalam Proses', 'Parsial', 'Selesai')
         ->and($adminShell)->toContain('Round Penerimaan Barang')
+        ->and($warehouseShell)->toContain('roundCounts.process', 'roundCounts.partial', 'roundCounts.complete')
+        ->and($warehouseDashboard)->toContain('isInView(round, activeView)')
+        ->and($pbResult)->toContain('item.is_complete', "? 'Selesai'")
         ->and($headWarehouseDashboard)->toContain('Round Penerimaan Barang', 'Menunggu Saya')
         ->and($userDashboard)->toContain('Round Penerimaan Barang', 'Menunggu Saya');
 });
@@ -348,6 +353,16 @@ it('keeps revision data and only deletes selected photos', function () {
     $round = revisedWorkflowRound($location, $warehouse, $user, RoundStatus::NeedsRevision, 'RCV-REVISION');
     $item = $round->items()->firstOrFail();
     $round->update(['delivery_note_number' => 'SJ-SALAH']);
+    $round->inspection->update(['accurate_raw_json' => [
+        'number' => 'RCV-REVISION',
+        'detailItem' => [[
+            'id' => 1,
+            'item' => ['no' => 'ITEM-1', 'name' => 'Barang Test'],
+            'detailName' => 'Barang Test',
+            'quantity' => 5,
+            'itemUnit' => ['name' => 'PCS'],
+        ]],
+    ]]);
 
     foreach (['hapus.jpg', 'tetap.jpg'] as $file) {
         Storage::disk('public')->put("goods-receipts/RCV-REVISION/{$file}", $file);
@@ -373,7 +388,7 @@ it('keeps revision data and only deletes selected photos', function () {
         '*/accurate/api/receive-item/detail.do*' => Http::response(['s' => true, 'd' => $round->inspection->accurate_raw_json]),
     ]);
 
-    $this->actingAs($warehouse)
+    $response = $this->actingAs($warehouse)
         ->put(route('warehouse.rounds.update', $round), [
             'pb_number' => 'RCV-REVISION',
             'location_id' => $location->id,
@@ -388,8 +403,9 @@ it('keeps revision data and only deletes selected photos', function () {
                 'quantity_status' => 'MATCH',
                 'damaged_qty' => 0,
             ]],
-        ])
-        ->assertRedirect(route('warehouse.rounds.show', $round));
+        ]);
+
+    $response->assertRedirect(route('warehouse.rounds.show', $round));
 
     expect($round->refresh()->delivery_note_number)->toBe('SJ-BENAR')
         ->and($round->items()->firstOrFail()->id)->toBe($item->id)

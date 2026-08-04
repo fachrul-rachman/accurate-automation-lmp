@@ -26,7 +26,7 @@ final class RoundController extends Controller
         $this->authorizeHeadWarehouseAccess($request);
         $this->authorizeHeadWarehouseRoundVisibility($round);
 
-        $round->load(['inspection.location', 'items.photos', 'attachments']);
+        $round->load(['inspection.location', 'inspection.pdfExport', 'items.photos', 'attachments']);
         $remainingByItem = RoundItemQuantity::remainingByRoundItem($round);
 
         return Inertia::render('head-warehouse/rounds/show', [
@@ -45,6 +45,9 @@ final class RoundController extends Controller
                 'user_signed_at' => DateFormatter::wib($round->user_signed_at),
                 'user_notes' => $round->user_notes,
                 'rejection_reason' => $round->rejection_reason,
+                'pdf_download_url' => $round->inspection->pdfExport === null
+                    ? null
+                    : route('files.pdf-exports.show', $round->inspection->pdfExport),
                 'inspection' => [
                     'pb_number' => $round->inspection->pb_number,
                     'po_number' => $round->inspection->po_number,

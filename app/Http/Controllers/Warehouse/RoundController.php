@@ -99,7 +99,7 @@ final class RoundController extends Controller
     {
         $this->authorizeWarehouseAccess($request, $round);
         abort_unless($round->round_status === RoundStatus::NeedsRevision, 403);
-        $round->load(['inspection.location', 'items']);
+        $round->load(['inspection.location', 'items.photos', 'attachments']);
 
         try {
             $result = $this->accurateReceiveItems->findReceiveItemDetail($round->inspection->location, $round->inspection->pb_number);
@@ -114,7 +114,7 @@ final class RoundController extends Controller
             ],
             'result' => [
                 ...$result,
-                'items' => array_map(fn (array $item): array => [...$item, 'qty_remaining' => null], $result['items']),
+                'items' => array_map(fn (array $item): array => [...$item, 'qty_remaining' => null, 'is_complete' => false], $result['items']),
             ],
             'users' => $round->inspection->location->users()
                 ->where('role', UserRole::User->value)
@@ -130,12 +130,24 @@ final class RoundController extends Controller
                 'notes' => $round->notes,
                 'delivery_note_number' => $round->delivery_note_number,
                 'rejection_reason' => $round->rejection_reason,
+                'attachments' => $round->attachments->map(fn ($attachment): array => [
+                    'id' => $attachment->id,
+                    'type' => $attachment->attachment_type->value,
+                    'name' => $attachment->original_filename ?? $attachment->attachment_type->value,
+                    'url' => route('files.round-attachments.show', $attachment),
+                ])->all(),
                 'items' => $round->items->map(fn ($item): array => [
                     'accurate_detail_item_id' => $item->accurate_detail_item_id,
                     'quality_status' => $item->quality_status->value,
                     'quantity_status' => $item->quantity_status->value,
                     'received_qty' => $item->received_qty,
                     'damaged_qty' => $item->damaged_qty,
+                    'photos' => $item->photos->map(fn ($photo): array => [
+                        'id' => $photo->id,
+                        'type' => $photo->photo_type->value,
+                        'name' => $photo->original_filename ?? $photo->photo_type->value,
+                        'url' => route('files.round-item-photos.show', $photo),
+                    ])->all(),
                 ])->all(),
             ],
         ]);

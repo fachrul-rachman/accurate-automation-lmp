@@ -1,5 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, CheckCircle2, LogOut } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Download, LogOut } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useOnlineStatus } from '@/lib/use-online-status';
 
@@ -48,6 +48,7 @@ type Round = {
     user_signed_at: string | null;
     user_notes: string | null;
     rejection_reason: string | null;
+    pdf_download_url: string | null;
     inspection: {
         pb_number: string;
         po_number: string | null;
@@ -106,6 +107,15 @@ export default function UserRoundShow({ round }: Props) {
                             />
                         </div>
                         <div className="flex flex-wrap gap-2">
+                            {round.pdf_download_url && (
+                                <a
+                                    href={round.pdf_download_url}
+                                    className="inline-flex items-center gap-2 rounded-md bg-teal-700 px-3 py-2 text-sm font-medium text-white hover:bg-teal-800"
+                                >
+                                    <Download className="h-4 w-4" />
+                                    PDF
+                                </a>
+                            )}
                             <Link
                                 href="/dashboard/user"
                                 className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"

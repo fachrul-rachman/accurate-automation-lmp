@@ -119,7 +119,7 @@ it('blocks Head Warehouse from opening rounds before Head Warehouse step', funct
         ->assertOk();
 });
 
-it('allows only Admin and assigned-location Warehouse to download final PDF', function () {
+it('allows Admin assigned-location Warehouse involved User and Head Warehouse to download final PDF', function () {
     Storage::fake('public');
 
     $location = Location::factory()->create();
@@ -148,6 +148,6 @@ it('allows only Admin and assigned-location Warehouse to download final PDF', fu
     $this->actingAs($warehouse)->get(route('files.pdf-exports.show', $pdf))->assertOk();
     $this->actingAs($admin)->get(route('files.pdf-exports.show', $pdf))->assertOk();
     $this->actingAs($otherWarehouse)->get(route('files.pdf-exports.show', $pdf))->assertForbidden();
-    $this->actingAs($hod)->get(route('files.pdf-exports.show', $pdf))->assertForbidden();
-    $this->actingAs($headWarehouse)->get(route('files.pdf-exports.show', $pdf))->assertForbidden();
+    $this->actingAs($hod)->get(route('files.pdf-exports.show', $pdf))->assertOk();
+    $this->actingAs($headWarehouse)->get(route('files.pdf-exports.show', $pdf))->assertOk();
 });

@@ -22,14 +22,17 @@ export function WarehouseShell({
     activeView,
     onViewChange,
     title,
-    roundCount,
+    roundCounts,
     userSummary,
     children,
 }: {
     activeView: string;
     onViewChange: (view: string) => void;
     title: string;
-    roundCount: number;
+    roundCounts: Record<
+        'draft' | 'revision' | 'process' | 'partial' | 'complete',
+        number
+    >;
     userSummary: { name: string; locations: string };
     children: ReactNode;
 }) {
@@ -37,16 +40,36 @@ export function WarehouseShell({
     const [mobileOpen, setMobileOpen] = useState(false);
     const navItems: NavItem[] = [
         { key: 'search', label: 'Cari Penerimaan Barang', icon: Search },
-        { key: 'draft', label: 'Draft', icon: ClipboardList },
-        { key: 'revision', label: 'Perlu Perbaikan', icon: ClipboardList },
+        {
+            key: 'draft',
+            label: 'Draft',
+            icon: ClipboardList,
+            badge: roundCounts.draft,
+        },
+        {
+            key: 'revision',
+            label: 'Perlu Perbaikan',
+            icon: ClipboardList,
+            badge: roundCounts.revision,
+        },
         {
             key: 'process',
             label: 'Dalam Proses',
             icon: ClipboardList,
-            badge: roundCount,
+            badge: roundCounts.process,
         },
-        { key: 'partial', label: 'Parsial', icon: ClipboardList },
-        { key: 'complete', label: 'Selesai', icon: ClipboardList },
+        {
+            key: 'partial',
+            label: 'Parsial',
+            icon: ClipboardList,
+            badge: roundCounts.partial,
+        },
+        {
+            key: 'complete',
+            label: 'Selesai',
+            icon: ClipboardList,
+            badge: roundCounts.complete,
+        },
     ];
 
     return (

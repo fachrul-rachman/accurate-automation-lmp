@@ -69,7 +69,11 @@ final class PdfExportController extends Controller
                     ->exists(),
                 403
             ),
-            UserRole::User, UserRole::HeadWarehouse => abort(403),
+            UserRole::HeadWarehouse => null,
+            UserRole::User => abort_unless(
+                $pdfExport->inspection->rounds->contains('selected_user_id', $user->id),
+                403
+            ),
         };
     }
 }

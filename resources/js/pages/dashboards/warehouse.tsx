@@ -17,7 +17,6 @@ type Props = {
     };
     locations: LocationOption[];
     active_rounds: ActiveRound[];
-    active_round_count: number;
     selected_location_id?: number;
     pb_number?: string;
 };
@@ -50,45 +49,56 @@ function viewLabel(view: Exclude<WarehouseView, 'search'>) {
     }[view];
 }
 
+function isInView(round: ActiveRound, view: WarehouseView) {
+    if (view === 'draft') {
+        return round.status === 'DRAFT';
+    }
+
+    if (view === 'revision') {
+        return round.status === 'NEEDS_REVISION';
+    }
+
+    if (view === 'process') {
+        return [
+            'WAITING_HEAD_WAREHOUSE_SIGNATURE',
+            'WAITING_USER_SIGNATURE',
+        ].includes(round.status);
+    }
+
+    if (view === 'partial') {
+        return round.completion_result === 'PARTIAL';
+    }
+
+    if (view === 'complete') {
+        return (
+            round.completion_result === 'COMPLETE' ||
+            round.pdf_download_url !== null
+        );
+    }
+
+    return false;
+}
+
 export default function WarehouseDashboard({
     user_summary,
     locations,
     active_rounds,
-    active_round_count,
     selected_location_id,
     pb_number,
 }: Props) {
     const online = useOnlineStatus();
     const [activeView, setActiveView] = useState<WarehouseView>('search');
-    const visibleRounds = active_rounds.filter((round) => {
-        if (activeView === 'draft') {
-            return round.status === 'DRAFT';
-        }
-
-        if (activeView === 'revision') {
-            return round.status === 'NEEDS_REVISION';
-        }
-
-        if (activeView === 'process') {
-            return [
-                'WAITING_HEAD_WAREHOUSE_SIGNATURE',
-                'WAITING_USER_SIGNATURE',
-            ].includes(round.status);
-        }
-
-        if (activeView === 'partial') {
-            return round.completion_result === 'PARTIAL';
-        }
-
-        if (activeView === 'complete') {
-            return (
-                round.completion_result === 'COMPLETE' ||
-                round.pdf_download_url !== null
-            );
-        }
-
-        return false;
-    });
+    const visibleRounds = active_rounds.filter((round) =>
+        isInView(round, activeView),
+    );
+    const roundCounts = Object.fromEntries(
+        (['draft', 'revision', 'process', 'partial', 'complete'] as const).map(
+            (view) => [
+                view,
+                active_rounds.filter((round) => isInView(round, view)).length,
+            ],
+        ),
+    ) as Record<Exclude<WarehouseView, 'search'>, number>;
     const { data, setData, post, processing, errors } = useForm({
         location_id: selected_location_id ?? locations[0]?.id ?? '',
         pb_number: pb_number ?? '',
@@ -110,7 +120,7 @@ export default function WarehouseDashboard({
                         ? 'Cari Penerimaan Barang'
                         : viewLabel(activeView)
                 }
-                roundCount={active_round_count}
+                roundCounts={roundCounts}
                 userSummary={user_summary}
             >
                 <div className="mt-6">

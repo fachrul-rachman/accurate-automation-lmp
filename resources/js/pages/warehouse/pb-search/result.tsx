@@ -22,6 +22,7 @@ type SearchItem = {
     po_number: string | null;
     quantity: number | null;
     qty_remaining: number | null;
+    is_complete: boolean;
     unit: string | null;
 };
 
@@ -45,12 +46,24 @@ type Props = {
         notes: string | null;
         delivery_note_number: string | null;
         rejection_reason: string | null;
+        attachments: Array<{
+            id: number;
+            type: string;
+            name: string;
+            url: string;
+        }>;
         items: Array<{
             accurate_detail_item_id: string | null;
             quality_status: string;
             quantity_status: string;
             received_qty: string | null;
             damaged_qty: string;
+            photos: Array<{
+                id: number;
+                type: string;
+                name: string;
+                url: string;
+            }>;
         }>;
     };
 };
@@ -84,7 +97,7 @@ export default function WarehousePbSearchResult({
                 );
 
                 return {
-                    is_checked: existing !== undefined,
+                    is_checked: existing !== undefined && !item.is_complete,
                     accurate_detail_item_id: item.accurate_item_row_id ?? '',
                     quality_status: existing?.quality_status ?? 'GOOD',
                     quantity_status: existing?.quantity_status ?? 'MATCH',
@@ -94,6 +107,8 @@ export default function WarehousePbSearchResult({
                     damage_photos: [] as File[],
                 };
             }),
+            delete_attachment_ids: [] as number[],
+            delete_photo_ids: [] as number[],
         });
 
     function submit() {
@@ -106,6 +121,38 @@ export default function WarehousePbSearchResult({
         } else {
             post('/warehouse/rounds', { forceFormData: true });
         }
+    }
+
+    function toggleDeletedPhoto(id: number) {
+        setData(
+            'delete_photo_ids',
+            data.delete_photo_ids.includes(id)
+                ? data.delete_photo_ids.filter((photoId) => photoId !== id)
+                : [...data.delete_photo_ids, id],
+        );
+    }
+
+    function toggleDeletedAttachment(id: number) {
+        setData(
+            'delete_attachment_ids',
+            data.delete_attachment_ids.includes(id)
+                ? data.delete_attachment_ids.filter(
+                      (attachmentId) => attachmentId !== id,
+                  )
+                : [...data.delete_attachment_ids, id],
+        );
+    }
+
+    function existingPhotos(item: SearchItem, type: string) {
+        return (
+            editing_round?.items
+                .find(
+                    (roundItem) =>
+                        roundItem.accurate_detail_item_id ===
+                        item.accurate_item_row_id,
+                )
+                ?.photos.filter((photo) => photo.type === type) ?? []
+        );
     }
 
     function goToRoundStep() {
@@ -127,20 +174,35 @@ export default function WarehousePbSearchResult({
         (item) => item.qty_remaining !== null,
     );
     const itemsComplete =
-        data.items.every((item) => {
+        data.items.every((item, index) => {
             if (!item.is_checked) {
                 return true;
             }
+
+            const existing = editing_round?.items.find(
+                (roundItem) =>
+                    roundItem.accurate_detail_item_id ===
+                    result.items[index].accurate_item_row_id,
+            );
+            const retainedPhotos =
+                existing?.photos.filter(
+                    (photo) => !data.delete_photo_ids.includes(photo.id),
+                ) ?? [];
 
             const receivedOk =
                 item.quantity_status === 'MATCH' || item.received_qty !== '';
             const damageOk =
                 item.quality_status !== 'DAMAGED' ||
-                (Number(item.damaged_qty) > 0 && item.damage_photos.length > 0);
+                (Number(item.damaged_qty) > 0 &&
+                    (item.damage_photos.length > 0 ||
+                        retainedPhotos.some(
+                            (photo) => photo.type === 'DAMAGE',
+                        )));
 
             return (
                 item.accurate_detail_item_id !== '' &&
-                item.item_photos.length > 0 &&
+                (item.item_photos.length > 0 ||
+                    retainedPhotos.some((photo) => photo.type === 'ITEM')) &&
                 receivedOk &&
                 damageOk
             );
@@ -360,6 +422,12 @@ export default function WarehousePbSearchResult({
                                             ? errors.delivery_note_photo
                                             : undefined
                                     }
+                                    existingFiles={editing_round?.attachments.filter(
+                                        (attachment) =>
+                                            attachment.type === 'DELIVERY_NOTE',
+                                    )}
+                                    deletedIds={data.delete_attachment_ids}
+                                    onToggleDeleted={toggleDeletedAttachment}
                                 />
                                 <FileInput
                                     label="Foto Penerima"
@@ -371,6 +439,13 @@ export default function WarehousePbSearchResult({
                                             ? errors.receiver_photo
                                             : undefined
                                     }
+                                    existingFiles={editing_round?.attachments.filter(
+                                        (attachment) =>
+                                            attachment.type ===
+                                            'RECEIVER_PHOTO',
+                                    )}
+                                    deletedIds={data.delete_attachment_ids}
+                                    onToggleDeleted={toggleDeletedAttachment}
                                 />
                             </div>
                         )}
@@ -469,8 +544,13 @@ export default function WarehousePbSearchResult({
                                                                         items,
                                                                     );
                                                                 }}
+                                                                disabled={
+                                                                    item.is_complete
+                                                                }
                                                             />
-                                                            Ya
+                                                            {item.is_complete
+                                                                ? 'Selesai'
+                                                                : 'Ya'}
                                                         </label>
                                                     </td>
                                                     <td className="px-4 py-3">
@@ -587,6 +667,7 @@ export default function WarehousePbSearchResult({
                                                             type="number"
                                                             min="0"
                                                             max={
+                                                                item.qty_remaining ??
                                                                 item.quantity ??
                                                                 undefined
                                                             }
@@ -611,7 +692,8 @@ export default function WarehousePbSearchResult({
                                                                             event
                                                                                 .target
                                                                                 .value,
-                                                                            item.quantity,
+                                                                            item.qty_remaining ??
+                                                                                item.quantity,
                                                                         ),
                                                                 };
                                                                 setData(
@@ -711,6 +793,18 @@ export default function WarehousePbSearchResult({
                                                                 }
                                                             />
                                                         </label>
+                                                        <ExistingFiles
+                                                            files={existingPhotos(
+                                                                item,
+                                                                'ITEM',
+                                                            )}
+                                                            deletedIds={
+                                                                data.delete_photo_ids
+                                                            }
+                                                            onToggleDeleted={
+                                                                toggleDeletedPhoto
+                                                            }
+                                                        />
                                                         {showValidationErrors &&
                                                             (formErrors[
                                                                 `items.${index}.item_photo`
@@ -776,6 +870,18 @@ export default function WarehousePbSearchResult({
                                                                     />
                                                                 </label>
                                                             )}
+                                                        <ExistingFiles
+                                                            files={existingPhotos(
+                                                                item,
+                                                                'DAMAGE',
+                                                            )}
+                                                            deletedIds={
+                                                                data.delete_photo_ids
+                                                            }
+                                                            onToggleDeleted={
+                                                                toggleDeletedPhoto
+                                                            }
+                                                        />
                                                         {showValidationErrors &&
                                                             (formErrors[
                                                                 `items.${index}.damage_photo`
@@ -865,22 +971,90 @@ function FileInput({
     label,
     error,
     onChange,
+    existingFiles = [],
+    deletedIds = [],
+    onToggleDeleted,
 }: {
     label: string;
     error?: string;
     onChange: (file: File | null) => void;
+    existingFiles?: ExistingFile[];
+    deletedIds?: number[];
+    onToggleDeleted?: (id: number) => void;
 }) {
     return (
-        <label className="block text-sm">
-            <span className="font-medium text-slate-700">{label}</span>
-            <input
-                type="file"
-                accept="image/*"
-                onChange={(event) => onChange(event.target.files?.[0] ?? null)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+        <div className="text-sm">
+            <label className="block">
+                <span className="font-medium text-slate-700">{label}</span>
+                <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) =>
+                        onChange(event.target.files?.[0] ?? null)
+                    }
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+                />
+            </label>
+            <ExistingFiles
+                files={existingFiles}
+                deletedIds={deletedIds}
+                onToggleDeleted={onToggleDeleted}
             />
             {error && <span className="mt-1 block text-red-600">{error}</span>}
-        </label>
+        </div>
+    );
+}
+
+type ExistingFile = { id: number; name: string; url: string };
+
+function ExistingFiles({
+    files,
+    deletedIds,
+    onToggleDeleted,
+}: {
+    files: ExistingFile[];
+    deletedIds: number[];
+    onToggleDeleted?: (id: number) => void;
+}) {
+    if (files.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="mt-2 space-y-1">
+            {files.map((file) => {
+                const deleted = deletedIds.includes(file.id);
+
+                return (
+                    <div
+                        key={file.id}
+                        className="flex items-center gap-2 text-xs"
+                    >
+                        <a
+                            href={file.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={
+                                deleted
+                                    ? 'line-through opacity-50'
+                                    : 'text-teal-700 underline'
+                            }
+                        >
+                            {file.name}
+                        </a>
+                        {onToggleDeleted && (
+                            <button
+                                type="button"
+                                onClick={() => onToggleDeleted(file.id)}
+                                className="font-semibold text-red-600"
+                            >
+                                {deleted ? 'Batal hapus' : 'Hapus'}
+                            </button>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
     );
 }
 

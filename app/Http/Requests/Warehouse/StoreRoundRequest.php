@@ -4,6 +4,8 @@ namespace App\Http\Requests\Warehouse;
 
 use App\Enums\QualityStatus;
 use App\Enums\QuantityStatus;
+use App\Enums\RoundAttachmentType;
+use App\Enums\RoundItemPhotoType;
 use App\Enums\RoundStatus;
 use App\Enums\UserRole;
 use App\Models\GoodsReceiptRound;
@@ -35,8 +37,12 @@ final class StoreRoundRequest extends FormRequest
             'specification_matches_po' => ['required', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'delivery_note_number' => ['required', 'string', 'max:100'],
-            'delivery_note_photo' => ['required', 'image', 'max:5120'],
-            'receiver_photo' => ['required', 'image', 'max:5120'],
+            'delivery_note_photo' => ['nullable', 'image', 'max:5120'],
+            'receiver_photo' => ['nullable', 'image', 'max:5120'],
+            'delete_attachment_ids' => ['nullable', 'array'],
+            'delete_attachment_ids.*' => ['integer'],
+            'delete_photo_ids' => ['nullable', 'array'],
+            'delete_photo_ids.*' => ['integer'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.is_checked' => ['sometimes', 'boolean'],
             'items.*.accurate_detail_item_id' => ['required', 'string'],
@@ -106,6 +112,42 @@ final class StoreRoundRequest extends FormRequest
                     $validator->errors()->add('selected_user_id', 'User tidak sesuai dengan lokasi ini.');
                 }
 
+                $round = $this->route('round');
+                $deletedAttachmentIds = array_map('intval', (array) $this->input('delete_attachment_ids', []));
+                $deletedPhotoIds = array_map('intval', (array) $this->input('delete_photo_ids', []));
+
+                if ($round instanceof GoodsReceiptRound) {
+                    $round->loadMissing(['attachments', 'items.photos']);
+
+                    if ($round->attachments->whereIn('id', $deletedAttachmentIds)->count() !== count(array_unique($deletedAttachmentIds))) {
+                        $validator->errors()->add('delete_attachment_ids', 'Lampiran tidak valid.');
+                    }
+
+                    if ($round->items->flatMap(fn ($item) => $item->photos)->whereIn('id', $deletedPhotoIds)->count() !== count(array_unique($deletedPhotoIds))) {
+                        $validator->errors()->add('delete_photo_ids', 'Foto item tidak valid.');
+                    }
+                }
+
+                if (! $this->hasAnyFile(-1, 'delivery_note_photo', '')) {
+                    $hasDeliveryNote = $round instanceof GoodsReceiptRound
+                        && $round->attachments->contains(fn ($attachment): bool => $attachment->attachment_type === RoundAttachmentType::DeliveryNote
+                            && ! in_array($attachment->id, $deletedAttachmentIds, true));
+
+                    if (! $hasDeliveryNote) {
+                        $validator->errors()->add('delivery_note_photo', 'Foto surat jalan wajib diupload.');
+                    }
+                }
+
+                if (! $this->hasAnyFile(-1, 'receiver_photo', '')) {
+                    $hasReceiverPhoto = $round instanceof GoodsReceiptRound
+                        && $round->attachments->contains(fn ($attachment): bool => $attachment->attachment_type === RoundAttachmentType::ReceiverPhoto
+                            && ! in_array($attachment->id, $deletedAttachmentIds, true));
+
+                    if (! $hasReceiverPhoto) {
+                        $validator->errors()->add('receiver_photo', 'Foto penerima wajib diupload.');
+                    }
+                }
+
                 $checkedCount = 0;
 
                 foreach ($this->input('items', []) as $index => $item) {
@@ -129,7 +171,15 @@ final class StoreRoundRequest extends FormRequest
                         $validator->errors()->add("items.{$index}.quantity_status", 'Status quantity wajib dipilih.');
                     }
 
-                    if (! $this->hasAnyFile($index, 'item_photo', 'item_photos')) {
+                    $existingItem = $round instanceof GoodsReceiptRound
+                        ? $round->items->firstWhere('accurate_detail_item_id', (string) ($item['accurate_detail_item_id'] ?? ''))
+                        : null;
+                    $hasExistingItemPhoto = $existingItem?->photos->contains(
+                        fn ($photo): bool => $photo->photo_type === RoundItemPhotoType::Item
+                            && ! in_array($photo->id, $deletedPhotoIds, true)
+                    ) ?? false;
+
+                    if (! $hasExistingItemPhoto && ! $this->hasAnyFile($index, 'item_photo', 'item_photos')) {
                         $validator->errors()->add("items.{$index}.item_photo", 'Foto item wajib diupload.');
                     }
 
@@ -142,7 +192,12 @@ final class StoreRoundRequest extends FormRequest
                             $validator->errors()->add("items.{$index}.damaged_qty", 'Damaged quantity wajib diisi.');
                         }
 
-                        if (! $this->hasAnyFile($index, 'damage_photo', 'damage_photos')) {
+                        $hasExistingDamagePhoto = $existingItem?->photos->contains(
+                            fn ($photo): bool => $photo->photo_type === RoundItemPhotoType::Damage
+                                && ! in_array($photo->id, $deletedPhotoIds, true)
+                        ) ?? false;
+
+                        if (! $hasExistingDamagePhoto && ! $this->hasAnyFile($index, 'damage_photo', 'damage_photos')) {
                             $validator->errors()->add("items.{$index}.damage_photo", 'Foto kerusakan wajib diupload.');
                         }
                     }
@@ -165,13 +220,18 @@ final class StoreRoundRequest extends FormRequest
 
     private function hasAnyFile(int $index, string $singularField, string $arrayField): bool
     {
-        $singular = $this->file("items.{$index}.{$singularField}");
+        $prefix = $index < 0 ? '' : "items.{$index}.";
+        $singular = $this->file($prefix.$singularField);
 
         if ($singular instanceof UploadedFile) {
             return true;
         }
 
-        $files = $this->file("items.{$index}.{$arrayField}");
+        if ($arrayField === '') {
+            return false;
+        }
+
+        $files = $this->file($prefix.$arrayField);
 
         if (! is_array($files)) {
             return false;

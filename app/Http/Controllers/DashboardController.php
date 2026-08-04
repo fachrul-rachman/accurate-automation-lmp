@@ -121,7 +121,7 @@ final class DashboardController extends Controller
         abort_unless($user !== null && $user->role === UserRole::User, 403);
 
         $pendingRounds = GoodsReceiptRound::query()
-            ->with(['inspection.location'])
+            ->with(['inspection.location', 'inspection.pdfExport'])
             ->where('selected_user_id', $user->id)
             ->where('round_status', RoundStatus::WaitingUserSignature)
             ->latest('head_warehouse_signed_at')
@@ -135,11 +135,14 @@ final class DashboardController extends Controller
                 'location_name' => $round->inspection->location?->name,
                 'round_number' => $round->round_number,
                 'submitted_at' => DateFormatter::wib($round->submitted_at),
+                'pdf_download_url' => $round->inspection->pdfExport === null
+                    ? null
+                    : route('files.pdf-exports.show', $round->inspection->pdfExport),
             ])
             ->all();
 
         $historyRounds = GoodsReceiptRound::query()
-            ->with(['inspection.location'])
+            ->with(['inspection.location', 'inspection.pdfExport'])
             ->where('selected_user_id', $user->id)
             ->whereIn('round_status', [RoundStatus::NeedsRevision, RoundStatus::Signed])
             ->latest('updated_at')
@@ -155,6 +158,9 @@ final class DashboardController extends Controller
                 'status' => $this->signedRoundStatusLabel($round),
                 'completion_result' => $round->completion_result,
                 'updated_at' => DateFormatter::wib($round->updated_at),
+                'pdf_download_url' => $round->inspection->pdfExport === null
+                    ? null
+                    : route('files.pdf-exports.show', $round->inspection->pdfExport),
             ])
             ->all();
 
@@ -173,7 +179,7 @@ final class DashboardController extends Controller
         abort_unless($user !== null && $user->role === UserRole::HeadWarehouse, 403);
 
         $pendingRounds = GoodsReceiptRound::query()
-            ->with(['inspection.location'])
+            ->with(['inspection.location', 'inspection.pdfExport'])
             ->where('round_status', RoundStatus::WaitingHeadWarehouseSignature)
             ->latest('submitted_at')
             ->limit(20)
@@ -186,11 +192,14 @@ final class DashboardController extends Controller
                 'location_name' => $round->inspection->location?->name,
                 'round_number' => $round->round_number,
                 'submitted_at' => DateFormatter::wib($round->submitted_at),
+                'pdf_download_url' => $round->inspection->pdfExport === null
+                    ? null
+                    : route('files.pdf-exports.show', $round->inspection->pdfExport),
             ])
             ->all();
 
         $historyRounds = GoodsReceiptRound::query()
-            ->with(['inspection.location'])
+            ->with(['inspection.location', 'inspection.pdfExport'])
             ->whereIn('round_status', [RoundStatus::WaitingUserSignature, RoundStatus::NeedsRevision, RoundStatus::Signed])
             ->latest('updated_at')
             ->limit(20)
@@ -205,6 +214,9 @@ final class DashboardController extends Controller
                 'status' => $this->signedRoundStatusLabel($round),
                 'completion_result' => $round->completion_result,
                 'updated_at' => DateFormatter::wib($round->head_warehouse_signed_at),
+                'pdf_download_url' => $round->inspection->pdfExport === null
+                    ? null
+                    : route('files.pdf-exports.show', $round->inspection->pdfExport),
             ])
             ->all();
 

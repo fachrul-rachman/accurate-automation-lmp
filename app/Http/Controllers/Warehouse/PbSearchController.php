@@ -160,6 +160,7 @@ final class PbSearchController extends Controller
                 $mappedItems[] = [
                     ...$item,
                     'qty_remaining' => $quantity === null ? null : max(0, $quantity - ($goodByItem[$key] ?? 0)),
+                    'is_complete' => $quantity !== null && ($goodByItem[$key] ?? 0) >= $quantity,
                 ];
             }
         }
@@ -180,7 +181,7 @@ final class PbSearchController extends Controller
 
         foreach ($items as $item) {
             if (is_array($item)) {
-                $mappedItems[] = [...$item, 'qty_remaining' => null];
+                $mappedItems[] = [...$item, 'qty_remaining' => null, 'is_complete' => false];
             }
         }
 
