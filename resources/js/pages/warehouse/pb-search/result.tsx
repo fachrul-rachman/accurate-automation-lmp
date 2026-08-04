@@ -56,8 +56,8 @@ type Props = {
             accurate_detail_item_id: string | null;
             quality_status: string;
             quantity_status: string;
-            received_qty: string | null;
-            damaged_qty: string;
+            received_qty: number | null;
+            damaged_qty: number;
             photos: Array<{
                 id: number;
                 type: string;
@@ -101,8 +101,8 @@ export default function WarehousePbSearchResult({
                     accurate_detail_item_id: item.accurate_item_row_id ?? '',
                     quality_status: existing?.quality_status ?? 'GOOD',
                     quantity_status: existing?.quantity_status ?? 'MATCH',
-                    received_qty: existing?.received_qty ?? '',
-                    damaged_qty: existing?.damaged_qty ?? '0',
+                    received_qty: String(existing?.received_qty ?? ''),
+                    damaged_qty: String(existing?.damaged_qty ?? 0),
                     item_photos: [] as File[],
                     damage_photos: [] as File[],
                 };

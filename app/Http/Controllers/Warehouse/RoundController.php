@@ -107,15 +107,17 @@ final class RoundController extends Controller
             return back()->withErrors(['round' => $exception->getMessage()]);
         }
 
+        $result['items'] = RoundItemQuantity::annotateAccurateItems(
+            $result['items'],
+            RoundItemQuantity::signedGoodByItem($round->inspection)
+        );
+
         return Inertia::render('warehouse/pb-search/result', [
             'location' => [
                 'id' => $round->inspection->location->id,
                 'name' => $round->inspection->location->name,
             ],
-            'result' => [
-                ...$result,
-                'items' => array_map(fn (array $item): array => [...$item, 'qty_remaining' => null, 'is_complete' => false], $result['items']),
-            ],
+            'result' => $result,
             'users' => $round->inspection->location->users()
                 ->where('role', UserRole::User->value)
                 ->where('is_active', true)
@@ -140,8 +142,8 @@ final class RoundController extends Controller
                     'accurate_detail_item_id' => $item->accurate_detail_item_id,
                     'quality_status' => $item->quality_status->value,
                     'quantity_status' => $item->quantity_status->value,
-                    'received_qty' => $item->received_qty,
-                    'damaged_qty' => $item->damaged_qty,
+                    'received_qty' => $item->received_qty === null ? null : (float) $item->received_qty,
+                    'damaged_qty' => (float) $item->damaged_qty,
                     'photos' => $item->photos->map(fn ($photo): array => [
                         'id' => $photo->id,
                         'type' => $photo->photo_type->value,

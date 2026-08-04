@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\RoundStatus;
+use App\Models\GoodsReceiptInspection;
 use App\Models\GoodsReceiptRound;
 
 final class RoundItemQuantity
@@ -15,17 +16,10 @@ final class RoundItemQuantity
         $round->loadMissing('inspection.rounds.items', 'items');
 
         $requiredByItem = self::requiredQuantities($round);
-        $goodByItem = [];
+        $goodByItem = self::signedGoodByItem($round->inspection);
 
-        foreach ($round->inspection->rounds as $inspectionRound) {
-            $shouldCountRound = $inspectionRound->is($round)
-                || $inspectionRound->round_status === RoundStatus::Signed;
-
-            if (! $shouldCountRound) {
-                continue;
-            }
-
-            foreach ($inspectionRound->items as $item) {
+        if ($round->round_status !== RoundStatus::Signed) {
+            foreach ($round->items as $item) {
                 $key = self::itemKey($item->accurate_detail_item_id, $item->item_code, $item->line_number);
                 $goodByItem[$key] = ($goodByItem[$key] ?? 0)
                     + max(0, (float) $item->received_qty - (float) $item->damaged_qty);
@@ -41,6 +35,50 @@ final class RoundItemQuantity
         }
 
         return $remainingByRoundItem;
+    }
+
+    /** @return array<string, float> */
+    public static function signedGoodByItem(GoodsReceiptInspection $inspection): array
+    {
+        $inspection->loadMissing('rounds.items');
+        $goodByItem = [];
+
+        foreach ($inspection->rounds as $round) {
+            if ($round->round_status !== RoundStatus::Signed) {
+                continue;
+            }
+
+            foreach ($round->items as $item) {
+                $key = self::itemKey($item->accurate_detail_item_id, $item->item_code, $item->line_number);
+                $goodByItem[$key] = ($goodByItem[$key] ?? 0)
+                    + max(0, (float) $item->received_qty - (float) $item->damaged_qty);
+            }
+        }
+
+        return $goodByItem;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $items
+     * @param  array<string, float>  $goodByItem
+     * @return array<int, array<string, mixed>>
+     */
+    public static function annotateAccurateItems(array $items, array $goodByItem): array
+    {
+        $annotated = [];
+
+        foreach ($items as $index => $item) {
+            $key = $item['accurate_item_row_id'] ?? $item['item_no'] ?? (string) ($index + 1);
+            $quantity = is_numeric($item['quantity'] ?? null) ? (float) $item['quantity'] : null;
+
+            $annotated[] = [
+                ...$item,
+                'qty_remaining' => $quantity === null ? null : max(0, $quantity - ($goodByItem[$key] ?? 0)),
+                'is_complete' => $quantity !== null && ($goodByItem[$key] ?? 0) >= $quantity,
+            ];
+        }
+
+        return $annotated;
     }
 
     private static function itemKey(?string $accurateDetailItemId, ?string $itemCode, int $lineNumber): string

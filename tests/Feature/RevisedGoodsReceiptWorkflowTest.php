@@ -517,6 +517,6 @@ it('keeps completed items disabled and formats quantities when revising a later 
         ->assertInertia(fn (Assert $page) => $page
             ->where('result.items.0.qty_remaining', 0)
             ->where('result.items.0.is_complete', true)
-            ->where('editing_round.items.0.received_qty', 10.0)
-            ->where('editing_round.items.0.damaged_qty', 0.0));
+            ->where('editing_round.items.0.received_qty', 10)
+            ->where('editing_round.items.0.damaged_qty', 0));
 });

@@ -8,6 +8,7 @@ use App\Http\Requests\Warehouse\SearchPbRequest;
 use App\Models\GoodsReceiptInspection;
 use App\Models\GoodsReceiptRound;
 use App\Services\AccurateReceiveItemService;
+use App\Support\RoundItemQuantity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -135,37 +136,11 @@ final class PbSearchController extends Controller
             return $this->withEmptyRemainingQuantities($result);
         }
 
-        $goodByItem = [];
-
-        foreach ($inspection->rounds as $round) {
-            if ($round->round_status->value !== 'SIGNED') {
-                continue;
-            }
-
-            foreach ($round->items as $item) {
-                $key = $item->accurate_detail_item_id ?? $item->item_code ?? (string) $item->line_number;
-                $goodByItem[$key] = ($goodByItem[$key] ?? 0)
-                    + max(0, (float) $item->received_qty - (float) $item->damaged_qty);
-            }
-        }
-
         $items = is_array($result['items'] ?? null) ? $result['items'] : [];
-        $mappedItems = [];
-
-        foreach ($items as $index => $item) {
-            if (is_array($item)) {
-                $key = $item['accurate_item_row_id'] ?? $item['item_no'] ?? (string) ($index + 1);
-                $quantity = is_numeric($item['quantity'] ?? null) ? (float) $item['quantity'] : null;
-
-                $mappedItems[] = [
-                    ...$item,
-                    'qty_remaining' => $quantity === null ? null : max(0, $quantity - ($goodByItem[$key] ?? 0)),
-                    'is_complete' => $quantity !== null && ($goodByItem[$key] ?? 0) >= $quantity,
-                ];
-            }
-        }
-
-        $result['items'] = $mappedItems;
+        $result['items'] = RoundItemQuantity::annotateAccurateItems(
+            array_values(array_filter($items, 'is_array')),
+            RoundItemQuantity::signedGoodByItem($inspection)
+        );
 
         return $result;
     }
