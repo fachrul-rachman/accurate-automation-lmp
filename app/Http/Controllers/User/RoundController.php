@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\User;
 
+use App\Enums\RoundItemStatus;
 use App\Enums\RoundStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
@@ -10,6 +11,7 @@ use App\Models\User;
 use App\Services\GoodsReceiptRoundService;
 use App\Support\DateFormatter;
 use App\Support\RoundItemQuantity;
+use App\Support\RoundNoteHistory;
 use App\Support\RoundPartialReason;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,6 +28,7 @@ final class RoundController extends Controller
         $this->authorizeUserAccess($request, $round);
 
         $round->load(['inspection.location', 'inspection.pdfExport', 'items.photos', 'attachments']);
+        $visibleItems = $round->items->where('selected_user_id', $request->user()->id)->values();
         $remainingByItem = RoundItemQuantity::remainingByRoundItem($round);
 
         return Inertia::render('user/rounds/show', [
@@ -44,6 +47,7 @@ final class RoundController extends Controller
                 'user_signed_at' => DateFormatter::wib($round->user_signed_at),
                 'user_notes' => $round->user_notes,
                 'rejection_reason' => $round->rejection_reason,
+                'notes_history' => RoundNoteHistory::for($round),
                 'pdf_download_url' => $round->inspection->pdfExport === null
                     ? null
                     : route('files.pdf-exports.show', $round->inspection->pdfExport),
@@ -53,7 +57,7 @@ final class RoundController extends Controller
                     'supplier_name' => $round->inspection->supplier_name,
                     'location_name' => $round->inspection->location?->name,
                 ],
-                'items' => $round->items->map(fn ($item): array => [
+                'items' => $visibleItems->map(fn ($item): array => [
                     'id' => $item->id,
                     'item_code' => $item->item_code,
                     'item_name' => $item->item_name,
@@ -66,6 +70,8 @@ final class RoundController extends Controller
                     'damaged_qty' => (float) $item->damaged_qty,
                     'qty_remaining' => $remainingByItem[$item->id] ?? 0.0,
                     'photo_count' => $item->photos->count(),
+                    'head_status' => $item->head_status->value,
+                    'user_status' => $item->user_status->value,
                     'photos' => $item->photos->map(fn ($photo): array => [
                         'id' => $photo->id,
                         'type' => $photo->photo_type->value,
@@ -80,8 +86,8 @@ final class RoundController extends Controller
                     'url' => route('files.round-attachments.show', $attachment),
                 ])->all(),
                 'partial_reasons' => RoundPartialReason::forRound($round),
-                'can_sign' => $round->round_status === RoundStatus::WaitingUserSignature,
-                'can_reject' => $round->round_status === RoundStatus::WaitingUserSignature,
+                'can_sign' => $visibleItems->contains(fn ($item): bool => $item->head_status === RoundItemStatus::Approved && $item->user_status === RoundItemStatus::Pending),
+                'can_reject' => $visibleItems->contains(fn ($item): bool => $item->head_status === RoundItemStatus::Approved && $item->user_status === RoundItemStatus::Pending),
             ],
         ]);
     }
@@ -119,7 +125,7 @@ final class RoundController extends Controller
         $user = $request->user();
 
         abort_unless($user instanceof User && $user->role === UserRole::User, 403);
-        abort_unless($round->selected_user_id === $user->id, 403);
+        abort_unless($round->items()->where('selected_user_id', $user->id)->exists() || $round->selected_user_id === $user->id, 403);
     }
 
     private function roundStatusLabel(GoodsReceiptRound $round): string

@@ -73,6 +73,14 @@ final class PdfGenerationService
             'generatedAt' => DateFormatter::wib(now()),
             'itemSummary' => $this->itemSummary($inspection),
             'finalRound' => $inspection->rounds->last(),
+            'signatureUsers' => $inspection->rounds->flatMap->items
+                ->filter(fn ($item): bool => $item->userSigner !== null)
+                ->unique('user_signed_by')
+                ->values(),
+            'signatureHeadItem' => $inspection->rounds->flatMap->items
+                ->filter(fn ($item): bool => $item->headSigner !== null)
+                ->sortByDesc('head_signed_at')
+                ->first(),
             'company' => $this->companyDetails($inspection),
             'checks' => $this->checks($inspection),
             'logoDataUri' => $this->logoDataUri(),
@@ -125,7 +133,7 @@ final class PdfGenerationService
      */
     private function companyDetails(GoodsReceiptInspection $inspection): array
     {
-        if (Str::contains(Str::lower($inspection->location?->name ?? ''), 'karawang')) {
+        if (Str::contains(Str::lower($inspection->location->name), 'karawang')) {
             return [
                 'name' => 'PT. ALAM HIJAU LESTARI',
                 'address' => [
@@ -194,6 +202,9 @@ final class PdfGenerationService
         $inspection->load([
             'location',
             'rounds.items.photos',
+            'rounds.items.selectedUser',
+            'rounds.items.userSigner',
+            'rounds.items.headSigner',
             'rounds.attachments',
             'rounds.creator',
             'rounds.selectedUser',
@@ -216,7 +227,33 @@ final class PdfGenerationService
             return null;
         }
 
-        return 'data:'.($mimeType ?: 'image/jpeg').';base64,'.base64_encode($content);
+        if (! function_exists('imagecreatefromstring')) {
+            return 'data:'.($mimeType ?: 'image/jpeg').';base64,'.base64_encode($content);
+        }
+
+        $image = @imagecreatefromstring($content);
+
+        if ($image === false) {
+            return 'data:'.($mimeType ?: 'image/jpeg').';base64,'.base64_encode($content);
+        }
+
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $scale = min(1, 1200 / max($width, $height));
+        $thumbnail = imagecreatetruecolor(max(1, (int) ($width * $scale)), max(1, (int) ($height * $scale)));
+        $white = imagecolorallocate($thumbnail, 255, 255, 255);
+
+        if ($white !== false) {
+            imagefill($thumbnail, 0, 0, $white);
+        }
+        imagecopyresampled($thumbnail, $image, 0, 0, 0, 0, imagesx($thumbnail), imagesy($thumbnail), $width, $height);
+        ob_start();
+        imagejpeg($thumbnail, null, 80);
+        $thumbnailContent = ob_get_clean();
+        imagedestroy($image);
+        imagedestroy($thumbnail);
+
+        return 'data:image/jpeg;base64,'.base64_encode($thumbnailContent);
     }
 
     private function safePathPart(string $value): string

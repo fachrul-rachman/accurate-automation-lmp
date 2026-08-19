@@ -1,6 +1,8 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, CheckCircle2, Download, LogOut } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { RoundNoteHistory } from '@/components/round-note-history';
+import type { RoundNote } from '@/components/round-note-history';
 import { useOnlineStatus } from '@/lib/use-online-status';
 
 type RoundItem = {
@@ -60,6 +62,7 @@ type Round = {
     partial_reasons: string[];
     can_sign: boolean;
     can_reject: boolean;
+    notes_history: RoundNote[];
 };
 
 type Props = {
@@ -338,6 +341,7 @@ export default function UserRoundShow({ round }: Props) {
                             Round ini sudah tidak menunggu tanda tangan user.
                         </p>
                     )}
+                    <RoundNoteHistory notes={round.notes_history} />
                 </section>
             </main>
         </>

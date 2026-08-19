@@ -32,6 +32,11 @@ final class RoundFileController extends Controller
     {
         $photo->loadMissing('roundItem.round.inspection');
         $this->authorizeRoundFile($request, $photo->roundItem->round);
+        abort_if(
+            $request->user()?->role === UserRole::User
+            && $photo->roundItem->selected_user_id !== $request->user()->id,
+            403
+        );
 
         return Storage::disk($this->diskForKey($photo->r2_key))->response(
             $photo->r2_key,
@@ -59,11 +64,11 @@ final class RoundFileController extends Controller
         $user = $request->user();
 
         abort_unless($user instanceof User, 403);
-        $round->loadMissing('inspection');
+        $round->loadMissing('inspection', 'items');
 
         match ($user->role) {
             UserRole::User => abort_unless(
-                $round->selected_user_id === $user->id
+                ($round->items->contains('selected_user_id', $user->id) || $round->selected_user_id === $user->id)
                 && in_array($round->round_status, [RoundStatus::WaitingUserSignature, RoundStatus::NeedsRevision, RoundStatus::Signed], true),
                 403
             ),

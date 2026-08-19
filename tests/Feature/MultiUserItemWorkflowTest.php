@@ -140,10 +140,40 @@ it('finishes a round only after every assigned User signs their approved items',
         ->and(PdfExport::query()->where('inspection_id', $round->inspection_id)->exists())->toBeTrue();
 });
 
+it('rechecks only the rejected User items without reopening signed items', function () {
+    Storage::fake('public');
+    $location = Location::factory()->create();
+    $warehouse = multiUserWorkflowUser(UserRole::Warehouse, $location);
+    $head = multiUserWorkflowUser(UserRole::HeadWarehouse);
+    $firstUser = multiUserWorkflowUser(UserRole::User, $location);
+    $secondUser = multiUserWorkflowUser(UserRole::User, $location);
+    [$round, $firstItem, $secondItem] = multiUserWorkflowRound($location, $warehouse, $firstUser, $secondUser);
+
+    $round->update(['round_status' => RoundStatus::WaitingUserSignature]);
+    $round->items()->update(['head_status' => 'APPROVED', 'head_signed_by' => $head->id, 'head_signed_at' => now()]);
+
+    $this->actingAs($firstUser)->post(route('user.rounds.sign', $round))->assertRedirect();
+    $firstSignedAt = $firstItem->refresh()->user_signed_at;
+    $this->actingAs($secondUser)->post(route('user.rounds.reject', $round), ['notes' => 'Item B perlu diperbaiki.'])->assertRedirect();
+
+    expect($firstItem->refresh()->user_status->value)->toBe('SIGNED')
+        ->and($secondItem->refresh()->head_status->value)->toBe('REJECTED')
+        ->and($round->refresh()->round_status)->toBe(RoundStatus::NeedsRevision);
+
+    $this->actingAs($warehouse)->post(route('warehouse.rounds.submit', $round))->assertRedirect();
+    $this->actingAs($head)->post(route('head-warehouse.rounds.sign', $round))->assertRedirect();
+
+    expect($firstItem->refresh()->user_signed_at?->equalTo($firstSignedAt))->toBeTrue()
+        ->and($firstItem->user_status->value)->toBe('SIGNED')
+        ->and($secondItem->refresh()->head_status->value)->toBe('APPROVED')
+        ->and($secondItem->user_status->value)->toBe('PENDING');
+});
+
 it('shows every rejection note as application history without replacing earlier notes', function () {
     $location = Location::factory()->create();
     $warehouse = multiUserWorkflowUser(UserRole::Warehouse, $location);
     $head = multiUserWorkflowUser(UserRole::HeadWarehouse);
+    $admin = multiUserWorkflowUser(UserRole::Admin);
     $firstUser = multiUserWorkflowUser(UserRole::User, $location);
     $secondUser = multiUserWorkflowUser(UserRole::User, $location);
     [$round, $firstItem, $secondItem] = multiUserWorkflowRound($location, $warehouse, $firstUser, $secondUser);
@@ -168,6 +198,13 @@ it('shows every rejection note as application history without replacing earlier 
             ->has('round.notes_history', 2)
             ->where('round.notes_history.0.note', 'Jumlah Item A tidak sesuai.')
             ->where('round.notes_history.1.note', 'Foto Item A buram.'));
+
+    $this->actingAs($head)->get(route('head-warehouse.rounds.show', $round))
+        ->assertInertia(fn (Assert $page) => $page->has('round.notes_history', 2));
+    $this->actingAs($firstUser)->get(route('user.rounds.show', $round))
+        ->assertInertia(fn (Assert $page) => $page->has('round.notes_history', 2));
+    $this->actingAs($admin)->get(route('admin.monitoring.show', $round->inspection))
+        ->assertInertia(fn (Assert $page) => $page->has('rounds.0.notes_history', 2));
 });
 
 it('keeps the requested compact PDF layout rules in the template', function () {
@@ -175,6 +212,6 @@ it('keeps the requested compact PDF layout rules in the template', function () {
 
     expect($template)
         ->not->toContain('No. Surat Jalan:')
-        ->toContain("attachments->chunk(2)", "photos->chunk(2)", 'signatureUsers->chunk(3)')
+        ->toContain('attachments->chunk(2)', 'photos->chunk(2)', 'signatureUsers->chunk(3)')
         ->toContain('Lokasi Penerima:', 'No. Checklist:', 'Supplier:', 'Tanggal Checklist:', 'No. PO:');
 });

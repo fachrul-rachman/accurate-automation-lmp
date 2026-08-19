@@ -12,6 +12,7 @@ use App\Services\AccurateReceiveItemService;
 use App\Services\GoodsReceiptRoundService;
 use App\Support\DateFormatter;
 use App\Support\RoundItemQuantity;
+use App\Support\RoundNoteHistory;
 use App\Support\RoundPartialReason;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -41,7 +42,7 @@ final class RoundController extends Controller
     {
         $this->authorizeWarehouseAccess($request, $round);
 
-        $round->load(['inspection.location', 'inspection.pdfExport', 'items.photos', 'attachments']);
+        $round->load(['inspection.location', 'inspection.pdfExport', 'items.photos', 'items.selectedUser', 'attachments']);
         $remainingByItem = RoundItemQuantity::remainingByRoundItem($round);
 
         return Inertia::render('warehouse/rounds/show', [
@@ -57,6 +58,7 @@ final class RoundController extends Controller
                 'submitted_at' => DateFormatter::wib($round->submitted_at),
                 'selected_user_id' => $round->selected_user_id,
                 'rejection_reason' => $round->rejection_reason,
+                'notes_history' => RoundNoteHistory::for($round),
                 'inspection' => [
                     'pb_number' => $round->inspection->pb_number,
                     'po_number' => $round->inspection->po_number,
@@ -76,6 +78,7 @@ final class RoundController extends Controller
                     'damaged_qty' => (float) $item->damaged_qty,
                     'qty_remaining' => $remainingByItem[$item->id] ?? 0.0,
                     'photo_count' => $item->photos->count(),
+                    'selected_user' => $item->selectedUser?->name,
                 ])->all(),
                 'partial_reasons' => RoundPartialReason::forRound($round),
                 'can_edit' => in_array($round->round_status, [RoundStatus::Draft, RoundStatus::NeedsRevision], true),
@@ -140,6 +143,8 @@ final class RoundController extends Controller
                 ])->all(),
                 'items' => $round->items->map(fn ($item): array => [
                     'accurate_detail_item_id' => $item->accurate_detail_item_id,
+                    'selected_user_id' => $item->selected_user_id ?? $round->selected_user_id,
+                    'is_editable' => $item->head_status->value === 'REJECTED' || $item->user_status->value === 'REJECTED',
                     'quality_status' => $item->quality_status->value,
                     'quantity_status' => $item->quantity_status->value,
                     'received_qty' => $item->received_qty === null ? null : (float) $item->received_qty,

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\RoundItemStatus;
 use App\Enums\RoundStatus;
 use App\Models\GoodsReceiptInspection;
 use App\Models\GoodsReceiptRound;
@@ -44,11 +45,14 @@ final class RoundItemQuantity
         $goodByItem = [];
 
         foreach ($inspection->rounds as $round) {
-            if ($round->round_status !== RoundStatus::Signed) {
-                continue;
-            }
-
             foreach ($round->items as $item) {
+                $signed = $item->user_status === RoundItemStatus::Signed
+                    || ($round->round_status === RoundStatus::Signed && $item->user_status === RoundItemStatus::Pending && $item->user_signed_by === null);
+
+                if (! $signed) {
+                    continue;
+                }
+
                 $key = self::itemKey($item->accurate_detail_item_id, $item->item_code, $item->line_number);
                 $goodByItem[$key] = ($goodByItem[$key] ?? 0)
                     + max(0, (float) $item->received_qty - (float) $item->damaged_qty);

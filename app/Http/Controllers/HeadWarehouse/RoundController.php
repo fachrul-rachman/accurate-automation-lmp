@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\HeadWarehouse;
 
+use App\Enums\RoundItemStatus;
 use App\Enums\RoundStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
@@ -10,6 +11,7 @@ use App\Models\User;
 use App\Services\GoodsReceiptRoundService;
 use App\Support\DateFormatter;
 use App\Support\RoundItemQuantity;
+use App\Support\RoundNoteHistory;
 use App\Support\RoundPartialReason;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,7 +28,7 @@ final class RoundController extends Controller
         $this->authorizeHeadWarehouseAccess($request);
         $this->authorizeHeadWarehouseRoundVisibility($round);
 
-        $round->load(['inspection.location', 'inspection.pdfExport', 'items.photos', 'attachments']);
+        $round->load(['inspection.location', 'inspection.pdfExport', 'items.photos', 'items.selectedUser', 'attachments']);
         $remainingByItem = RoundItemQuantity::remainingByRoundItem($round);
 
         return Inertia::render('head-warehouse/rounds/show', [
@@ -45,6 +47,7 @@ final class RoundController extends Controller
                 'user_signed_at' => DateFormatter::wib($round->user_signed_at),
                 'user_notes' => $round->user_notes,
                 'rejection_reason' => $round->rejection_reason,
+                'notes_history' => RoundNoteHistory::for($round),
                 'pdf_download_url' => $round->inspection->pdfExport === null
                     ? null
                     : route('files.pdf-exports.show', $round->inspection->pdfExport),
@@ -67,6 +70,9 @@ final class RoundController extends Controller
                     'damaged_qty' => (float) $item->damaged_qty,
                     'qty_remaining' => $remainingByItem[$item->id] ?? 0.0,
                     'photo_count' => $item->photos->count(),
+                    'selected_user' => $item->selectedUser?->name,
+                    'head_status' => $item->head_status->value,
+                    'user_status' => $item->user_status->value,
                     'photos' => $item->photos->map(fn ($photo): array => [
                         'id' => $photo->id,
                         'type' => $photo->photo_type->value,
@@ -81,8 +87,8 @@ final class RoundController extends Controller
                     'url' => route('files.round-attachments.show', $attachment),
                 ])->all(),
                 'partial_reasons' => RoundPartialReason::forRound($round),
-                'can_sign' => $round->round_status === RoundStatus::WaitingHeadWarehouseSignature,
-                'can_reject' => $round->round_status === RoundStatus::WaitingHeadWarehouseSignature,
+                'can_sign' => $round->items->contains(fn ($item): bool => $item->head_status === RoundItemStatus::Pending),
+                'can_reject' => $round->items->contains(fn ($item): bool => $item->head_status === RoundItemStatus::Pending),
             ],
         ]);
     }
@@ -104,10 +110,14 @@ final class RoundController extends Controller
     public function reject(Request $request, GoodsReceiptRound $round): RedirectResponse
     {
         $this->authorizeHeadWarehouseAccess($request);
-        $notes = $request->validate(['notes' => ['required', 'string', 'max:1000']])['notes'];
+        $validated = $request->validate([
+            'notes' => ['required', 'string', 'max:1000'],
+            'item_ids' => ['nullable', 'array'],
+            'item_ids.*' => ['integer'],
+        ]);
 
         try {
-            $this->rounds->rejectByHeadWarehouse($round, $request->user(), $notes);
+            $this->rounds->rejectByHeadWarehouse($round, $request->user(), $validated['notes'], $validated['item_ids'] ?? []);
         } catch (RuntimeException $exception) {
             return back()->withErrors(['round' => $exception->getMessage()]);
         }

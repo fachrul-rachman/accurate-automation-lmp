@@ -6,10 +6,12 @@ use App\Enums\QualityStatus;
 use App\Enums\QuantityStatus;
 use App\Enums\RoundAttachmentType;
 use App\Enums\RoundItemPhotoType;
+use App\Enums\RoundItemStatus;
 use App\Enums\RoundStatus;
 use App\Enums\UserRole;
 use App\Models\GoodsReceiptRound;
 use App\Models\Location;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rule;
@@ -33,7 +35,7 @@ final class StoreRoundRequest extends FormRequest
         return [
             'pb_number' => ['required', 'string', 'max:100'],
             'location_id' => ['required', 'integer', Rule::exists('locations', 'id')->where('is_active', true)],
-            'selected_user_id' => ['required', 'integer', Rule::exists('users', 'id')],
+            'selected_user_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
             'specification_matches_po' => ['required', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'delivery_note_number' => ['required', 'string', 'max:100'],
@@ -46,6 +48,7 @@ final class StoreRoundRequest extends FormRequest
             'items' => ['required', 'array', 'min:1'],
             'items.*.is_checked' => ['sometimes', 'boolean'],
             'items.*.accurate_detail_item_id' => ['required', 'string'],
+            'items.*.selected_user_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
             'items.*.quality_status' => ['nullable', Rule::enum(QualityStatus::class)],
             'items.*.quantity_status' => ['nullable', Rule::enum(QuantityStatus::class)],
             'items.*.received_qty' => ['nullable', 'numeric', 'min:0'],
@@ -65,7 +68,7 @@ final class StoreRoundRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'selected_user_id.required' => 'User wajib dipilih.',
+            'items.*.selected_user_id.required' => 'User item wajib dipilih.',
             'delivery_note_number.required' => 'Nomor surat jalan wajib diisi.',
             'delivery_note_photo.required' => 'Foto surat jalan wajib diupload.',
             'delivery_note_photo.image' => 'Foto surat jalan harus berupa gambar.',
@@ -100,18 +103,6 @@ final class StoreRoundRequest extends FormRequest
                     $validator->errors()->add('location_id', 'Kamu tidak memiliki akses ke lokasi ini.');
                 }
 
-                $hodIsAllowed = $this->user()
-                    ?->newQuery()
-                    ->where('id', $this->integer('selected_user_id'))
-                    ->where('role', UserRole::User->value)
-                    ->where('is_active', true)
-                    ->whereHas('locations', fn ($query) => $query->where('locations.id', $locationId))
-                    ->exists() ?? false;
-
-                if (! $hodIsAllowed) {
-                    $validator->errors()->add('selected_user_id', 'User tidak sesuai dengan lokasi ini.');
-                }
-
                 $round = $this->route('round');
                 $deletedAttachmentIds = array_map('intval', (array) $this->input('delete_attachment_ids', []));
                 $deletedPhotoIds = array_map('intval', (array) $this->input('delete_photo_ids', []));
@@ -125,6 +116,16 @@ final class StoreRoundRequest extends FormRequest
 
                     if ($round->items->flatMap(fn ($item) => $item->photos)->whereIn('id', $deletedPhotoIds)->count() !== count(array_unique($deletedPhotoIds))) {
                         $validator->errors()->add('delete_photo_ids', 'Foto item tidak valid.');
+                    }
+
+                    $lockedPhotoSelected = $round->items
+                        ->reject(fn ($item): bool => $item->head_status === RoundItemStatus::Rejected || $item->user_status === RoundItemStatus::Rejected)
+                        ->flatMap(fn ($item) => $item->photos)
+                        ->whereIn('id', $deletedPhotoIds)
+                        ->isNotEmpty();
+
+                    if ($lockedPhotoSelected) {
+                        $validator->errors()->add('delete_photo_ids', 'Foto item yang sudah disetujui tidak dapat dihapus.');
                     }
                 }
 
@@ -162,6 +163,18 @@ final class StoreRoundRequest extends FormRequest
                     }
 
                     $checkedCount++;
+
+                    $selectedUserId = (int) ($item['selected_user_id'] ?? $this->input('selected_user_id'));
+                    $userIsAllowed = User::query()
+                        ->whereKey($selectedUserId)
+                        ->where('role', UserRole::User->value)
+                        ->where('is_active', true)
+                        ->whereHas('locations', fn ($query) => $query->where('locations.id', $locationId))
+                        ->exists();
+
+                    if (! $userIsAllowed) {
+                        $validator->errors()->add("items.{$index}.selected_user_id", 'User item tidak sesuai dengan lokasi ini.');
+                    }
 
                     if (! isset($item['quality_status'])) {
                         $validator->errors()->add("items.{$index}.quality_status", 'Kualitas wajib dipilih.');

@@ -18,8 +18,8 @@
         .company-name { font-weight: bold; }
         .info-box { border: 1.5px solid #0a2472; margin-bottom: 10px; padding: 8px 12px; }
         .info-table { width: 100%; }
-        .info-table td { border: 0; padding: 2px 0; }
-        .info-label { color: #0a2472; font-weight: bold; text-decoration: underline; width: 145px; }
+        .info-table td { border: 0; padding: 3px 4px; }
+        .info-label { color: #0a2472; font-weight: bold; text-decoration: underline; width: 110px; }
         .info-value { border-bottom: 1px solid #111 !important; }
         table { border-collapse: collapse; width: 100%; }
         .main-table { margin-bottom: 10px; }
@@ -34,6 +34,7 @@
         .notes-title { font-style: italic; font-weight: bold; margin-bottom: 3px; }
         .notes-box { border: 1.5px solid #111; min-height: 45px; padding: 6px; }
         .signature-table { margin-top: 18px; table-layout: fixed; }
+        .signature-table + .signature-table { margin-top: 12px; }
         .signature-table td { border: 0; padding: 0 12px; text-align: center; vertical-align: top; width: 33.33%; }
         .signature-role { font-weight: bold; margin-bottom: 24px; }
         .signature-name { font-weight: bold; }
@@ -44,10 +45,10 @@
         .section-title { border-bottom: 1px solid #cbd5e1; font-size: 12px; margin: 14px 0 6px; padding-bottom: 4px; }
         .detail-grid td { border: 0; padding: 2px 0; vertical-align: top; }
         .detail-grid .label { color: #64748b; width: 145px; }
-        .detail-table th, .detail-table td { border: 1px solid #cbd5e1; padding: 4px; text-align: left; vertical-align: top; }
-        .detail-table th { background: #f1f5f9; }
+        .detail-table th, .detail-table td { border: 1px solid #cbd5e1; padding: 4px; vertical-align: top; }
+        .detail-table th { background: #f1f5f9; text-align: center; vertical-align: middle; }
         .photo-table { table-layout: fixed; }
-        .photo-table td { border: 0; padding: 0 6px 8px 0; vertical-align: top; width: 33.33%; }
+        .photo-table td { border: 0; padding: 0 6px 8px 0; vertical-align: top; width: 50%; }
         .photo-card { border: 1px solid #cbd5e1; page-break-inside: avoid; padding: 6px; }
         .photo-title { font-weight: bold; margin-bottom: 2px; }
         .photo-card img { display: block; margin: 6px auto 0; max-height: 170px; max-width: 100%; }
@@ -74,19 +75,15 @@
 
     <div class="info-box">
         <table class="info-table">
-            <tr><td class="info-label">No. Checklist:</td><td class="info-value">{{ $inspection->pb_number }}</td></tr>
-            <tr><td class="info-label">Tanggal Checklist:</td><td class="info-value">{{ $generatedAt }}</td></tr>
             <tr>
-                <td class="info-label">No. Surat Jalan:</td>
-                <td class="info-value">
-                    @foreach ($inspection->rounds as $round)
-                        Round {{ $round->round_number }}: {{ $round->delivery_note_number ?? '-' }}{{ ! $loop->last ? ' | ' : '' }}
-                    @endforeach
-                </td>
+                <td class="info-label">Lokasi Penerima:</td><td class="info-value">{{ $inspection->location?->name ?? '-' }}</td>
+                <td class="info-label">No. Checklist:</td><td class="info-value">{{ $inspection->pb_number }}</td>
             </tr>
-            <tr><td class="info-label">No. PO:</td><td class="info-value">{{ $inspection->po_number ?? '-' }}</td></tr>
-            <tr><td class="info-label">Supplier:</td><td class="info-value">{{ $inspection->supplier_name ?? '-' }}</td></tr>
-            <tr><td class="info-label">Lokasi Penerima:</td><td class="info-value">{{ $inspection->location?->name ?? '-' }}</td></tr>
+            <tr>
+                <td class="info-label">Supplier:</td><td class="info-value">{{ $inspection->supplier_name ?? '-' }}</td>
+                <td class="info-label">Tanggal Checklist:</td><td class="info-value">{{ $generatedAt }}</td>
+            </tr>
+            <tr><td></td><td></td><td class="info-label">No. PO:</td><td class="info-value">{{ $inspection->po_number ?? '-' }}</td></tr>
         </table>
     </div>
 
@@ -140,7 +137,7 @@
     <div class="notes-title">Catatan:</div>
     <div class="notes-box"></div>
 
-    @if ($finalRound !== null)
+    @if ($finalRound !== null && $signatureUsers->count() <= 1)
         <table class="signature-table">
             <tr>
                 <td>
@@ -151,18 +148,36 @@
                 </td>
                 <td>
                     <div class="signature-role">Approved By</div>
-                    <div class="signature-name">{{ $finalRound->headWarehouseSigner?->name ?? '-' }}</div>
-                    <div>{{ \App\Support\DateFormatter::wib($finalRound->head_warehouse_signed_at) ?? '-' }}</div>
+                    <div class="signature-name">{{ $signatureHeadItem?->headSigner?->name ?? $finalRound->headWarehouseSigner?->name ?? '-' }}</div>
+                    <div>{{ \App\Support\DateFormatter::wib($signatureHeadItem?->head_signed_at ?? $finalRound->head_warehouse_signed_at) ?? '-' }}</div>
                     <div class="signature-line"></div>
                 </td>
                 <td>
                     <div class="signature-role">Approved By</div>
-                    <div class="signature-name">{{ $finalRound->userSigner?->name ?? '-' }}</div>
-                    <div>{{ \App\Support\DateFormatter::wib($finalRound->user_signed_at) ?? '-' }}</div>
+                    <div class="signature-name">{{ $signatureUsers->first()?->userSigner?->name ?? $finalRound->userSigner?->name ?? '-' }}</div>
+                    <div>{{ \App\Support\DateFormatter::wib($signatureUsers->first()?->user_signed_at ?? $finalRound->user_signed_at) ?? '-' }}</div>
                     <div class="signature-line"></div>
                 </td>
             </tr>
         </table>
+    @elseif ($finalRound !== null)
+        <table class="signature-table">
+            <tr>
+                <td><div class="signature-role">Prepared By</div><div class="signature-name">{{ $finalRound->creator?->name ?? '-' }}</div><div>{{ \App\Support\DateFormatter::wib($finalRound->submitted_at) ?? '-' }}</div><div class="signature-line"></div></td>
+                <td><div class="signature-role">Approved By</div><div class="signature-name">{{ $signatureHeadItem?->headSigner?->name ?? $finalRound->headWarehouseSigner?->name ?? '-' }}</div><div>{{ \App\Support\DateFormatter::wib($signatureHeadItem?->head_signed_at ?? $finalRound->head_warehouse_signed_at) ?? '-' }}</div><div class="signature-line"></div></td>
+                <td></td>
+            </tr>
+        </table>
+        @foreach ($signatureUsers->chunk(3) as $userRow)
+            <table class="signature-table">
+                <tr>
+                    @foreach ($userRow as $signedItem)
+                        <td><div class="signature-role">Approved By</div><div class="signature-name">{{ $signedItem->userSigner?->name ?? '-' }}</div><div>{{ \App\Support\DateFormatter::wib($signedItem->user_signed_at) ?? '-' }}</div><div class="signature-line"></div></td>
+                    @endforeach
+                    @for ($column = $userRow->count(); $column < 3; $column++)<td></td>@endfor
+                </tr>
+            </table>
+        @endforeach
     @endif
 
     @foreach ($inspection->rounds as $round)
@@ -175,7 +190,7 @@
             <tr><td class="label">Spesifikasi sesuai PO</td><td>{{ $round->specification_matches_po ? 'Ya' : 'Tidak' }}</td></tr>
             <tr><td class="label">Warehouse</td><td>{{ $round->creator?->name ?? '-' }} - {{ \App\Support\DateFormatter::wib($round->submitted_at) ?? '-' }}</td></tr>
             <tr><td class="label">Head Warehouse</td><td>{{ $round->headWarehouseSigner?->name ?? '-' }} - {{ \App\Support\DateFormatter::wib($round->head_warehouse_signed_at) ?? '-' }}</td></tr>
-            <tr><td class="label">User</td><td>{{ $round->userSigner?->name ?? $round->selectedUser?->name ?? '-' }} - {{ \App\Support\DateFormatter::wib($round->user_signed_at) ?? '-' }}</td></tr>
+            <tr><td class="label">User</td><td>{{ $round->items->pluck('userSigner.name')->filter()->unique()->join(', ') ?: ($round->selectedUser?->name ?? '-') }}</td></tr>
         </table>
 
         <h3 class="section-title">Item Round</h3>
@@ -209,7 +224,7 @@
         </table>
 
         <h3 class="section-title">Foto Round</h3>
-        @forelse ($round->attachments->chunk(3) as $attachmentRow)
+        @forelse ($round->attachments->chunk(2) as $attachmentRow)
             <table class="photo-table">
                 <tr>
                     @foreach ($attachmentRow as $attachment)
@@ -224,7 +239,7 @@
                             </div>
                         </td>
                     @endforeach
-                    @for ($column = $attachmentRow->count(); $column < 3; $column++)
+                    @for ($column = $attachmentRow->count(); $column < 2; $column++)
                         <td></td>
                     @endfor
                 </tr>
@@ -236,7 +251,7 @@
         <h3 class="section-title">Foto Item</h3>
         @php($itemPhotoNumber = 1)
         @foreach ($round->items as $item)
-            @foreach ($item->photos->chunk(3) as $photoRow)
+            @foreach ($item->photos->chunk(2) as $photoRow)
                 <table class="photo-table">
                     <tr>
                         @foreach ($photoRow as $photo)
@@ -251,7 +266,7 @@
                                 </div>
                             </td>
                         @endforeach
-                        @for ($column = $photoRow->count(); $column < 3; $column++)
+                        @for ($column = $photoRow->count(); $column < 2; $column++)
                             <td></td>
                         @endfor
                     </tr>

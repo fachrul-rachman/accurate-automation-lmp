@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RoundItemStatus;
 use App\Enums\RoundStatus;
 use App\Enums\UserRole;
 use App\Models\GoodsReceiptRound;
@@ -122,8 +123,10 @@ final class DashboardController extends Controller
 
         $pendingRounds = GoodsReceiptRound::query()
             ->with(['inspection.location', 'inspection.pdfExport'])
-            ->where('selected_user_id', $user->id)
-            ->where('round_status', RoundStatus::WaitingUserSignature)
+            ->whereHas('items', fn ($query) => $query
+                ->where('selected_user_id', $user->id)
+                ->where('head_status', RoundItemStatus::Approved->value)
+                ->where('user_status', RoundItemStatus::Pending->value))
             ->latest('head_warehouse_signed_at')
             ->limit(20)
             ->get()
@@ -143,7 +146,11 @@ final class DashboardController extends Controller
 
         $historyRounds = GoodsReceiptRound::query()
             ->with(['inspection.location', 'inspection.pdfExport'])
-            ->where('selected_user_id', $user->id)
+            ->whereHas('items', fn ($query) => $query->where('selected_user_id', $user->id))
+            ->whereDoesntHave('items', fn ($query) => $query
+                ->where('selected_user_id', $user->id)
+                ->where('head_status', RoundItemStatus::Approved->value)
+                ->where('user_status', RoundItemStatus::Pending->value))
             ->whereIn('round_status', [RoundStatus::NeedsRevision, RoundStatus::Signed])
             ->latest('updated_at')
             ->limit(20)
@@ -180,7 +187,7 @@ final class DashboardController extends Controller
 
         $pendingRounds = GoodsReceiptRound::query()
             ->with(['inspection.location', 'inspection.pdfExport'])
-            ->where('round_status', RoundStatus::WaitingHeadWarehouseSignature)
+            ->whereHas('items', fn ($query) => $query->where('head_status', RoundItemStatus::Pending->value))
             ->latest('submitted_at')
             ->limit(20)
             ->get()
@@ -201,6 +208,7 @@ final class DashboardController extends Controller
         $historyRounds = GoodsReceiptRound::query()
             ->with(['inspection.location', 'inspection.pdfExport'])
             ->whereIn('round_status', [RoundStatus::WaitingUserSignature, RoundStatus::NeedsRevision, RoundStatus::Signed])
+            ->whereDoesntHave('items', fn ($query) => $query->where('head_status', RoundItemStatus::Pending->value))
             ->latest('updated_at')
             ->limit(20)
             ->get()

@@ -1,6 +1,8 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, Download, LogOut, Send } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { RoundNoteHistory } from '@/components/round-note-history';
+import type { RoundNote } from '@/components/round-note-history';
 
 type RoundItem = {
     id: number;
@@ -15,6 +17,7 @@ type RoundItem = {
     damaged_qty: number;
     qty_remaining: number;
     photo_count: number;
+    selected_user: string | null;
 };
 
 type Round = {
@@ -40,6 +43,7 @@ type Round = {
     rejection_reason: string | null;
     pdf_download_url: string | null;
     continue_url: string | null;
+    notes_history: RoundNote[];
 };
 
 type Props = {
@@ -175,6 +179,7 @@ export default function WarehouseRoundShow({ round }: Props) {
                                 <tr>
                                     <th className="px-4 py-3">Kode</th>
                                     <th className="px-4 py-3">Item</th>
+                                    <th className="px-4 py-3">User</th>
                                     <th className="px-4 py-3">No. Pesanan</th>
                                     <th className="px-4 py-3">Qty Pesanan</th>
                                     {showRemainingQty && (
@@ -197,6 +202,9 @@ export default function WarehouseRoundShow({ round }: Props) {
                                         </td>
                                         <td className="px-4 py-3">
                                             {item.item_name}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {item.selected_user ?? '-'}
                                         </td>
                                         <td className="px-4 py-3">
                                             {item.po_number ?? '-'}
@@ -240,6 +248,7 @@ export default function WarehouseRoundShow({ round }: Props) {
                             </button>
                         </form>
                     )}
+                    <RoundNoteHistory notes={round.notes_history} />
                 </section>
             </main>
         </>

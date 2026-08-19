@@ -8,6 +8,7 @@ use App\Enums\QualityStatus;
 use App\Enums\QuantityStatus;
 use App\Enums\RoundAttachmentType;
 use App\Enums\RoundItemPhotoType;
+use App\Enums\RoundItemStatus;
 use App\Enums\RoundStatus;
 use App\Models\GoodsReceiptInspection;
 use App\Models\GoodsReceiptRound;
@@ -43,7 +44,7 @@ final class GoodsReceiptRoundService
                 'inspection_id' => $inspection->id,
                 'round_number' => ((int) $inspection->rounds()->max('round_number')) + 1,
                 'created_by' => $warehouse->id,
-                'selected_user_id' => $data['selected_user_id'],
+                'selected_user_id' => $this->firstSelectedUserId($data),
                 'round_status' => RoundStatus::Draft,
                 'specification_matches_po' => (bool) $data['specification_matches_po'],
                 'notes' => $data['notes'] ?? null,
@@ -57,6 +58,7 @@ final class GoodsReceiptRoundService
                 $warehouse,
                 $round,
                 "Round {$round->round_number} dibuat untuk Penerimaan Barang {$inspection->pb_number}.",
+                metadata: empty($data['notes']) ? null : ['notes' => $data['notes']],
             );
 
             return $round->load(['inspection', 'items.photos', 'attachments']);
@@ -83,7 +85,7 @@ final class GoodsReceiptRoundService
 
         $updated = DB::transaction(function () use ($round, $data, $detail, $warehouse, &$keysToDelete): GoodsReceiptRound {
             $round->update([
-                'selected_user_id' => $data['selected_user_id'],
+                'selected_user_id' => $this->firstSelectedUserId($data),
                 'specification_matches_po' => (bool) $data['specification_matches_po'],
                 'notes' => $data['notes'] ?? null,
                 'delivery_note_number' => $data['delivery_note_number'],
@@ -107,7 +109,10 @@ final class GoodsReceiptRoundService
                 }
             }
 
-            $keptItemIds = [];
+            $editableItemIds = $round->items
+                ->filter(fn (GoodsReceiptRoundItem $item): bool => $item->head_status === RoundItemStatus::Rejected || $item->user_status === RoundItemStatus::Rejected)
+                ->modelKeys();
+            $keptItemIds = $round->items->whereNotIn('id', $editableItemIds)->modelKeys();
 
             foreach ($data['items'] as $index => $itemInput) {
                 if (! is_array($itemInput) || ! (bool) ($itemInput['is_checked'] ?? true)) {
@@ -116,6 +121,11 @@ final class GoodsReceiptRoundService
 
                 $accurateItem = $this->findAccurateItem($detail['items'], (string) $itemInput['accurate_detail_item_id']);
                 $roundItem = $round->items()->where('accurate_detail_item_id', (string) $itemInput['accurate_detail_item_id'])->first();
+
+                if ($roundItem !== null && ! in_array($roundItem->id, $editableItemIds, true)) {
+                    continue;
+                }
+
                 $values = $this->roundItemValues($round, $accurateItem, $itemInput, $index + 1);
 
                 if ($roundItem === null) {
@@ -146,6 +156,7 @@ final class GoodsReceiptRoundService
                 $warehouse,
                 $round,
                 "Round {$round->round_number} Penerimaan Barang {$round->inspection->pb_number} diperbaiki.",
+                metadata: empty($data['notes']) ? null : ['notes' => $data['notes']],
             );
 
             return $round->refresh();
@@ -162,15 +173,29 @@ final class GoodsReceiptRoundService
             throw new RuntimeException('Round sudah dikunci dan tidak bisa disubmit ulang.');
         }
 
-        $round->update([
-            'round_status' => RoundStatus::WaitingHeadWarehouseSignature,
-            'submitted_at' => now(),
-            'rejected_by' => null,
-            'rejected_at' => null,
-            'rejection_reason' => null,
-            'head_warehouse_notes' => null,
-            'user_notes' => null,
-        ]);
+        DB::transaction(function () use ($round): void {
+            $round->items()
+                ->whereIn('head_status', [RoundItemStatus::Pending->value, RoundItemStatus::Rejected->value])
+                ->update([
+                    'head_status' => RoundItemStatus::Pending,
+                    'head_signed_by' => null,
+                    'head_signed_at' => null,
+                    'user_status' => RoundItemStatus::Pending,
+                    'user_signed_by' => null,
+                    'user_signed_at' => null,
+                    'rejection_reason' => null,
+                ]);
+
+            $round->update([
+                'round_status' => RoundStatus::WaitingHeadWarehouseSignature,
+                'submitted_at' => now(),
+                'rejected_by' => null,
+                'rejected_at' => null,
+                'rejection_reason' => null,
+                'head_warehouse_notes' => null,
+                'user_notes' => null,
+            ]);
+        });
 
         $round->loadMissing('inspection');
         $this->auditLogs->write(
@@ -185,75 +210,115 @@ final class GoodsReceiptRoundService
 
     public function signByHeadWarehouse(GoodsReceiptRound $round, User $headWarehouse, ?string $notes = null): GoodsReceiptRound
     {
-        if ($round->round_status !== RoundStatus::WaitingHeadWarehouseSignature) {
+        if ($round->round_status !== RoundStatus::WaitingHeadWarehouseSignature
+            || ! $round->items()->where('head_status', RoundItemStatus::Pending->value)->exists()) {
             throw new RuntimeException('Round ini belum siap ditandatangani Head Warehouse.');
         }
 
-        return DB::transaction(function () use ($round, $headWarehouse, $notes): GoodsReceiptRound {
-            $round->update([
-                'round_status' => RoundStatus::WaitingUserSignature,
-                'head_warehouse_signed_by' => $headWarehouse->id,
-                'head_warehouse_signed_at' => now(),
-                'head_warehouse_notes' => $notes,
+        return $this->reviewByHeadWarehouse($round, $headWarehouse, [], $notes);
+    }
+
+    /** @param array<int, int> $rejectedItemIds */
+    public function rejectByHeadWarehouse(GoodsReceiptRound $round, User $headWarehouse, string $reason, array $rejectedItemIds = []): GoodsReceiptRound
+    {
+        if ($round->round_status !== RoundStatus::WaitingHeadWarehouseSignature
+            || ! $round->items()->where('head_status', RoundItemStatus::Pending->value)->exists()) {
+            throw new RuntimeException('Round ini belum siap diperiksa Head Warehouse.');
+        }
+
+        $rejectedItemIds = $rejectedItemIds === []
+            ? $round->items()->where('head_status', RoundItemStatus::Pending->value)->pluck('id')->all()
+            : $rejectedItemIds;
+
+        return $this->reviewByHeadWarehouse($round, $headWarehouse, $rejectedItemIds, $reason);
+    }
+
+    public function rejectByUser(GoodsReceiptRound $round, User $user, string $reason): GoodsReceiptRound
+    {
+        $items = $round->items()
+            ->where('selected_user_id', $user->id)
+            ->where('head_status', RoundItemStatus::Approved->value)
+            ->where('user_status', RoundItemStatus::Pending->value)
+            ->get();
+
+        if ($items->isEmpty()) {
+            throw new RuntimeException('Round ini belum siap diperiksa User.');
+        }
+
+        return DB::transaction(function () use ($round, $user, $reason, $items): GoodsReceiptRound {
+            GoodsReceiptRoundItem::query()->whereKey($items->modelKeys())->update([
+                'head_status' => RoundItemStatus::Rejected,
+                'head_signed_by' => null,
+                'head_signed_at' => null,
+                'user_status' => RoundItemStatus::Rejected,
+                'user_signed_by' => null,
+                'user_signed_at' => null,
+                'rejection_reason' => $reason,
             ]);
 
+            $round->update([
+                'user_notes' => $reason,
+                'rejection_reason' => $reason,
+                'rejected_by' => $user->id,
+                'rejected_at' => now(),
+                'head_warehouse_signed_by' => $round->items()->where('head_status', RoundItemStatus::Approved->value)->exists() ? $round->head_warehouse_signed_by : null,
+                'head_warehouse_signed_at' => $round->items()->where('head_status', RoundItemStatus::Approved->value)->exists() ? $round->head_warehouse_signed_at : null,
+            ]);
+            $this->syncRoundStatus($round);
             $round->loadMissing('inspection');
             $this->auditLogs->write(
-                'HEAD_WAREHOUSE_SIGNED',
-                $headWarehouse,
-                $round,
-                "Head Warehouse menandatangani round {$round->round_number} Penerimaan Barang {$round->inspection->pb_number}.",
+                'USER_REJECTED', $user, $round,
+                "Round {$round->round_number} Penerimaan Barang {$round->inspection->pb_number} dikembalikan ke Warehouse.",
+                metadata: ['notes' => $reason, 'item_ids' => $items->modelKeys()],
             );
 
             return $round->refresh();
         });
     }
 
-    public function rejectByHeadWarehouse(GoodsReceiptRound $round, User $headWarehouse, string $reason): GoodsReceiptRound
-    {
-        if ($round->round_status !== RoundStatus::WaitingHeadWarehouseSignature) {
-            throw new RuntimeException('Round ini belum siap diperiksa Head Warehouse.');
-        }
-
-        return $this->reject($round, $headWarehouse, $reason, 'head_warehouse_notes', 'HEAD_WAREHOUSE_REJECTED');
-    }
-
-    public function rejectByUser(GoodsReceiptRound $round, User $user, string $reason): GoodsReceiptRound
-    {
-        if ($round->round_status !== RoundStatus::WaitingUserSignature) {
-            throw new RuntimeException('Round ini belum siap diperiksa User.');
-        }
-
-        return $this->reject($round, $user, $reason, 'user_notes', 'USER_REJECTED');
-    }
-
     public function signByUser(GoodsReceiptRound $round, User $user, ?string $notes = null): GoodsReceiptRound
     {
-        if ($round->round_status !== RoundStatus::WaitingUserSignature) {
+        $items = $round->items()
+            ->where('selected_user_id', $user->id)
+            ->where('head_status', RoundItemStatus::Approved->value)
+            ->where('user_status', RoundItemStatus::Pending->value)
+            ->get();
+
+        if ($items->isEmpty()) {
             throw new RuntimeException('Round ini belum siap ditandatangani User.');
         }
 
-        return DB::transaction(function () use ($round, $user, $notes): GoodsReceiptRound {
+        return DB::transaction(function () use ($round, $user, $notes, $items): GoodsReceiptRound {
+            GoodsReceiptRoundItem::query()->whereKey($items->modelKeys())->update([
+                'user_status' => RoundItemStatus::Signed,
+                'user_signed_by' => $user->id,
+                'user_signed_at' => now(),
+                'rejection_reason' => null,
+            ]);
+
             $round->update([
-                'round_status' => RoundStatus::Signed,
                 'user_signed_by' => $user->id,
                 'user_signed_at' => now(),
                 'user_notes' => $notes,
             ]);
 
+            $this->syncRoundStatus($round);
+
             $round->loadMissing('inspection.rounds.items');
-            $completionResult = $this->calculateCompletionResult($round);
-
-            $round->update([
-                'completion_result' => $completionResult,
-            ]);
-
             $this->auditLogs->write(
                 'USER_SIGNED',
                 $user,
                 $round,
                 "User menandatangani round {$round->round_number} Penerimaan Barang {$round->inspection->pb_number}.",
+                metadata: ['notes' => $notes, 'item_ids' => $items->modelKeys()],
             );
+
+            if ($round->round_status !== RoundStatus::Signed) {
+                return $round->refresh();
+            }
+
+            $completionResult = $this->calculateCompletionResult($round);
+            $round->update(['completion_result' => $completionResult]);
 
             if ($completionResult === 'COMPLETE') {
                 $round->inspection->update([
@@ -291,32 +356,67 @@ final class GoodsReceiptRoundService
         });
     }
 
-    private function reject(GoodsReceiptRound $round, User $actor, string $notes, string $notesColumn, string $event): GoodsReceiptRound
+    /** @param array<int, int> $rejectedItemIds */
+    private function reviewByHeadWarehouse(GoodsReceiptRound $round, User $headWarehouse, array $rejectedItemIds, ?string $notes): GoodsReceiptRound
     {
-        return DB::transaction(function () use ($round, $actor, $notes, $notesColumn, $event): GoodsReceiptRound {
-            $round->update([
-                'round_status' => RoundStatus::NeedsRevision,
-                'head_warehouse_signed_by' => null,
-                'head_warehouse_signed_at' => null,
-                'user_signed_by' => null,
-                'user_signed_at' => null,
-                'rejected_by' => $actor->id,
-                'rejected_at' => now(),
+        return DB::transaction(function () use ($round, $headWarehouse, $rejectedItemIds, $notes): GoodsReceiptRound {
+            $pendingItems = $round->items()->where('head_status', RoundItemStatus::Pending->value)->get();
+            $invalidIds = array_diff($rejectedItemIds, $pendingItems->modelKeys());
+
+            if ($invalidIds !== []) {
+                throw new RuntimeException('Item yang dipilih tidak valid atau sudah diproses.');
+            }
+
+            $approvedIds = $pendingItems->whereNotIn('id', $rejectedItemIds)->modelKeys();
+            GoodsReceiptRoundItem::query()->whereKey($approvedIds)->update([
+                'head_status' => RoundItemStatus::Approved,
+                'head_signed_by' => $headWarehouse->id,
+                'head_signed_at' => now(),
+                'rejection_reason' => null,
+            ]);
+            GoodsReceiptRoundItem::query()->whereKey($rejectedItemIds)->update([
+                'head_status' => RoundItemStatus::Rejected,
+                'head_signed_by' => null,
+                'head_signed_at' => null,
+                'user_status' => RoundItemStatus::Pending,
                 'rejection_reason' => $notes,
-                $notesColumn => $notes,
             ]);
 
+            $round->update([
+                'head_warehouse_signed_by' => $approvedIds === [] ? null : $headWarehouse->id,
+                'head_warehouse_signed_at' => $approvedIds === [] ? null : now(),
+                'head_warehouse_notes' => $notes,
+                'rejected_by' => $rejectedItemIds === [] ? null : $headWarehouse->id,
+                'rejected_at' => $rejectedItemIds === [] ? null : now(),
+                'rejection_reason' => $rejectedItemIds === [] ? null : $notes,
+            ]);
+            $this->syncRoundStatus($round);
             $round->loadMissing('inspection');
             $this->auditLogs->write(
-                $event,
-                $actor,
-                $round,
-                "Round {$round->round_number} Penerimaan Barang {$round->inspection->pb_number} dikembalikan ke Warehouse.",
-                metadata: ['notes' => $notes],
+                $rejectedItemIds === [] ? 'HEAD_WAREHOUSE_SIGNED' : 'HEAD_WAREHOUSE_REJECTED',
+                $headWarehouse, $round,
+                $rejectedItemIds === []
+                    ? "Head Warehouse menandatangani round {$round->round_number} Penerimaan Barang {$round->inspection->pb_number}."
+                    : "Round {$round->round_number} Penerimaan Barang {$round->inspection->pb_number} dikembalikan sebagian ke Warehouse.",
+                metadata: ['notes' => $notes, 'item_ids' => $rejectedItemIds === [] ? $approvedIds : $rejectedItemIds],
             );
 
             return $round->refresh();
         });
+    }
+
+    private function syncRoundStatus(GoodsReceiptRound $round): void
+    {
+        $items = $round->items()->get(['head_status', 'user_status']);
+        $status = match (true) {
+            $items->contains(fn ($item): bool => $item->head_status === RoundItemStatus::Rejected || $item->user_status === RoundItemStatus::Rejected) => RoundStatus::NeedsRevision,
+            $items->contains(fn ($item): bool => $item->head_status === RoundItemStatus::Pending) => RoundStatus::WaitingHeadWarehouseSignature,
+            $items->contains(fn ($item): bool => $item->user_status === RoundItemStatus::Pending) => RoundStatus::WaitingUserSignature,
+            default => RoundStatus::Signed,
+        };
+
+        $round->update(['round_status' => $status]);
+        $round->refresh();
     }
 
     private function calculateCompletionResult(GoodsReceiptRound $round): string
@@ -330,7 +430,7 @@ final class GoodsReceiptRoundService
                 $key = $item->accurate_detail_item_id ?? $item->item_code ?? (string) $item->line_number;
                 $requiredByItem[$key] = max($requiredByItem[$key] ?? 0, (float) $item->qty);
 
-                if ($inspectionRound->round_status !== RoundStatus::Signed) {
+                if (! $this->itemIsSigned($item, $inspectionRound)) {
                     continue;
                 }
 
@@ -534,6 +634,7 @@ final class GoodsReceiptRoundService
             'qty' => $qty,
             'unit' => $accurateItem['unit'],
             'po_number' => $accurateItem['po_number'],
+            'selected_user_id' => $itemInput['selected_user_id'] ?? $round->selected_user_id,
             'quality_status' => QualityStatus::from((string) $itemInput['quality_status']),
             'quantity_status' => $quantityStatus,
             'received_qty' => $receivedQty,
@@ -545,15 +646,15 @@ final class GoodsReceiptRoundService
     private function remainingQuantity(GoodsReceiptRound $round, array $accurateItem): float
     {
         $goodQty = GoodsReceiptRoundItem::query()
-            ->whereHas('round', fn ($query) => $query
-                ->where('inspection_id', $round->inspection_id)
-                ->where('round_status', RoundStatus::Signed->value))
+            ->with('round')
+            ->whereHas('round', fn ($query) => $query->where('inspection_id', $round->inspection_id))
             ->when(
                 $accurateItem['accurate_item_row_id'] !== null,
                 fn ($query) => $query->where('accurate_detail_item_id', (string) $accurateItem['accurate_item_row_id']),
                 fn ($query) => $query->where('item_code', $accurateItem['item_no'])
             )
             ->get()
+            ->filter(fn (GoodsReceiptRoundItem $item): bool => $this->itemIsSigned($item, $item->round))
             ->sum(fn (GoodsReceiptRoundItem $item): float => max(0, (float) $item->received_qty - (float) $item->damaged_qty));
 
         return max(0, (float) $accurateItem['quantity'] - $goodQty);
@@ -617,5 +718,23 @@ final class GoodsReceiptRoundService
         $safe = preg_replace('/[^A-Za-z0-9_-]+/', '-', $value);
 
         return trim((string) $safe, '-') ?: 'file';
+    }
+
+    /** @param array<string, mixed> $data */
+    private function firstSelectedUserId(array $data): int
+    {
+        foreach ($data['items'] as $item) {
+            if (is_array($item) && (bool) ($item['is_checked'] ?? true) && isset($item['selected_user_id'])) {
+                return (int) $item['selected_user_id'];
+            }
+        }
+
+        return (int) $data['selected_user_id'];
+    }
+
+    private function itemIsSigned(GoodsReceiptRoundItem $item, GoodsReceiptRound $round): bool
+    {
+        return $item->user_status === RoundItemStatus::Signed
+            || ($round->round_status === RoundStatus::Signed && $item->user_status === RoundItemStatus::Pending && $item->user_signed_by === null);
     }
 }

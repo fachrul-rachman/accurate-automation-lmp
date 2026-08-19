@@ -2,6 +2,8 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, Download, Trash2 } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { AdminShell } from '@/components/admin-shell';
+import { RoundNoteHistory } from '@/components/round-note-history';
+import type { RoundNote } from '@/components/round-note-history';
 
 type Item = {
     id: number;
@@ -16,6 +18,7 @@ type Item = {
     quality_status: string;
     quantity_status: string;
     photo_count: number;
+    selected_user: string | null;
 };
 
 type Round = {
@@ -34,6 +37,7 @@ type Round = {
     head_warehouse_signed_at: string | null;
     items: Item[];
     attachment_count: number;
+    notes_history: RoundNote[];
 };
 
 type AuditLog = {
@@ -293,6 +297,7 @@ export default function AdminMonitoringShow({
                                         <tr>
                                             <th className="px-4 py-3">Kode</th>
                                             <th className="px-4 py-3">Item</th>
+                                            <th className="px-4 py-3">User</th>
                                             <th className="px-4 py-3">
                                                 No. Pesanan
                                             </th>
@@ -328,6 +333,9 @@ export default function AdminMonitoringShow({
                                                     {item.item_name}
                                                 </td>
                                                 <td className="px-4 py-3">
+                                                    {item.selected_user ?? '-'}
+                                                </td>
+                                                <td className="px-4 py-3">
                                                     {item.po_number ?? '-'}
                                                 </td>
                                                 <td className="px-4 py-3">
@@ -357,6 +365,7 @@ export default function AdminMonitoringShow({
                                     </tbody>
                                 </table>
                             </div>
+                            <RoundNoteHistory notes={round.notes_history} />
                         </div>
                     ))}
                 </section>

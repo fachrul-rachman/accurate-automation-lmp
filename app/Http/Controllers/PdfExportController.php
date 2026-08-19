@@ -20,7 +20,7 @@ final class PdfExportController extends Controller
 
     public function show(Request $request, PdfExport $pdfExport): StreamedResponse
     {
-        $pdfExport->loadMissing('inspection.rounds');
+        $pdfExport->loadMissing('inspection.rounds.items');
         $this->authorizePdfDownload($request, $pdfExport);
         $user = $request->user();
 
@@ -71,7 +71,7 @@ final class PdfExportController extends Controller
             ),
             UserRole::HeadWarehouse => null,
             UserRole::User => abort_unless(
-                $pdfExport->inspection->rounds->contains('selected_user_id', $user->id),
+                $pdfExport->inspection->rounds->flatMap->items->contains('selected_user_id', $user->id),
                 403
             ),
         };

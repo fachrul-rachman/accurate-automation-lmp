@@ -54,6 +54,8 @@ type Props = {
         }>;
         items: Array<{
             accurate_detail_item_id: string | null;
+            selected_user_id: number;
+            is_editable: boolean;
             quality_status: string;
             quantity_status: string;
             received_qty: number | null;
@@ -99,6 +101,8 @@ export default function WarehousePbSearchResult({
                 return {
                     is_checked: existing !== undefined && !item.is_complete,
                     accurate_detail_item_id: item.accurate_item_row_id ?? '',
+                    selected_user_id:
+                        existing?.selected_user_id ?? users[0]?.id ?? '',
                     quality_status: existing?.quality_status ?? 'GOOD',
                     quantity_status: existing?.quantity_status ?? 'MATCH',
                     received_qty: String(existing?.received_qty ?? ''),
@@ -152,6 +156,17 @@ export default function WarehousePbSearchResult({
                         item.accurate_item_row_id,
                 )
                 ?.photos.filter((photo) => photo.type === type) ?? []
+        );
+    }
+
+    function itemIsLocked(item: SearchItem) {
+        return (
+            item.is_complete ||
+            editing_round?.items.find(
+                (roundItem) =>
+                    roundItem.accurate_detail_item_id ===
+                    item.accurate_item_row_id,
+            )?.is_editable === false
         );
     }
 
@@ -333,36 +348,6 @@ export default function WarehousePbSearchResult({
 
                         {step === 'round' && (
                             <div className="mt-6 grid gap-4 md:grid-cols-2">
-                                <label className="block text-sm">
-                                    <span className="font-medium text-slate-700">
-                                        User setelah Head Warehouse
-                                    </span>
-                                    <select
-                                        value={data.selected_user_id}
-                                        onChange={(event) =>
-                                            setData(
-                                                'selected_user_id',
-                                                Number(event.target.value),
-                                            )
-                                        }
-                                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-                                    >
-                                        {users.map((user) => (
-                                            <option
-                                                key={user.id}
-                                                value={user.id}
-                                            >
-                                                {user.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {showValidationErrors &&
-                                        errors.selected_user_id && (
-                                            <span className="mt-1 block text-red-600">
-                                                {errors.selected_user_id}
-                                            </span>
-                                        )}
-                                </label>
                                 <label className="flex items-center gap-2 self-end text-sm text-slate-700">
                                     <input
                                         type="checkbox"
@@ -473,6 +458,9 @@ export default function WarehousePbSearchResult({
                                                     Nama Item
                                                 </th>
                                                 <th className="px-4 py-3">
+                                                    User Penerima
+                                                </th>
+                                                <th className="px-4 py-3">
                                                     No. Pesanan
                                                 </th>
                                                 <th className="px-4 py-3">
@@ -545,7 +533,16 @@ export default function WarehousePbSearchResult({
                                                                     );
                                                                 }}
                                                                 disabled={
-                                                                    item.is_complete
+                                                                    item.is_complete ||
+                                                                    editing_round?.items.find(
+                                                                        (
+                                                                            roundItem,
+                                                                        ) =>
+                                                                            roundItem.accurate_detail_item_id ===
+                                                                            item.accurate_item_row_id,
+                                                                    )
+                                                                        ?.is_editable ===
+                                                                        false
                                                                 }
                                                             />
                                                             {item.is_complete
@@ -558,6 +555,81 @@ export default function WarehousePbSearchResult({
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         {item.item_name ?? '-'}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <select
+                                                            value={
+                                                                data.items[
+                                                                    index
+                                                                ]
+                                                                    .selected_user_id
+                                                            }
+                                                            onChange={(
+                                                                event,
+                                                            ) => {
+                                                                const items = [
+                                                                    ...data.items,
+                                                                ];
+                                                                items[index] = {
+                                                                    ...items[
+                                                                        index
+                                                                    ],
+                                                                    selected_user_id:
+                                                                        Number(
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                        ),
+                                                                };
+                                                                setData(
+                                                                    'items',
+                                                                    items,
+                                                                );
+                                                            }}
+                                                            disabled={
+                                                                !data.items[
+                                                                    index
+                                                                ].is_checked ||
+                                                                editing_round?.items.find(
+                                                                    (
+                                                                        roundItem,
+                                                                    ) =>
+                                                                        roundItem.accurate_detail_item_id ===
+                                                                        item.accurate_item_row_id,
+                                                                )
+                                                                    ?.is_editable ===
+                                                                    false
+                                                            }
+                                                            className="min-w-40 rounded-md border border-slate-300 px-2 py-1 disabled:bg-slate-100"
+                                                        >
+                                                            {users.map(
+                                                                (user) => (
+                                                                    <option
+                                                                        key={
+                                                                            user.id
+                                                                        }
+                                                                        value={
+                                                                            user.id
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            user.name
+                                                                        }
+                                                                    </option>
+                                                                ),
+                                                            )}
+                                                        </select>
+                                                        {formErrors[
+                                                            `items.${index}.selected_user_id`
+                                                        ] && (
+                                                            <p className="mt-1 text-xs text-red-600">
+                                                                {
+                                                                    formErrors[
+                                                                        `items.${index}.selected_user_id`
+                                                                    ]
+                                                                }
+                                                            </p>
+                                                        )}
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         {item.po_number ?? '-'}
@@ -605,7 +677,10 @@ export default function WarehousePbSearchResult({
                                                             disabled={
                                                                 !data.items[
                                                                     index
-                                                                ].is_checked
+                                                                ].is_checked ||
+                                                                itemIsLocked(
+                                                                    item,
+                                                                )
                                                             }
                                                         >
                                                             <option value="GOOD">
@@ -648,7 +723,10 @@ export default function WarehousePbSearchResult({
                                                             disabled={
                                                                 !data.items[
                                                                     index
-                                                                ].is_checked
+                                                                ].is_checked ||
+                                                                itemIsLocked(
+                                                                    item,
+                                                                )
                                                             }
                                                         >
                                                             <option value="MATCH">
@@ -710,7 +788,10 @@ export default function WarehousePbSearchResult({
                                                                     index
                                                                 ]
                                                                     .quantity_status ===
-                                                                    'MATCH'
+                                                                    'MATCH' ||
+                                                                itemIsLocked(
+                                                                    item,
+                                                                )
                                                             }
                                                         />
                                                     </td>
@@ -748,7 +829,10 @@ export default function WarehousePbSearchResult({
                                                             disabled={
                                                                 !data.items[
                                                                     index
-                                                                ].is_checked
+                                                                ].is_checked ||
+                                                                itemIsLocked(
+                                                                    item,
+                                                                )
                                                             }
                                                         />
                                                     </td>
@@ -789,7 +873,11 @@ export default function WarehousePbSearchResult({
                                                                 disabled={
                                                                     !data.items[
                                                                         index
-                                                                    ].is_checked
+                                                                    ]
+                                                                        .is_checked ||
+                                                                    itemIsLocked(
+                                                                        item,
+                                                                    )
                                                                 }
                                                             />
                                                         </label>
@@ -802,7 +890,11 @@ export default function WarehousePbSearchResult({
                                                                 data.delete_photo_ids
                                                             }
                                                             onToggleDeleted={
-                                                                toggleDeletedPhoto
+                                                                itemIsLocked(
+                                                                    item,
+                                                                )
+                                                                    ? undefined
+                                                                    : toggleDeletedPhoto
                                                             }
                                                         />
                                                         {showValidationErrors &&
@@ -867,6 +959,9 @@ export default function WarehousePbSearchResult({
                                                                             );
                                                                         }}
                                                                         className="mt-1 block w-48 text-xs"
+                                                                        disabled={itemIsLocked(
+                                                                            item,
+                                                                        )}
                                                                     />
                                                                 </label>
                                                             )}
@@ -879,7 +974,11 @@ export default function WarehousePbSearchResult({
                                                                 data.delete_photo_ids
                                                             }
                                                             onToggleDeleted={
-                                                                toggleDeletedPhoto
+                                                                itemIsLocked(
+                                                                    item,
+                                                                )
+                                                                    ? undefined
+                                                                    : toggleDeletedPhoto
                                                             }
                                                         />
                                                         {showValidationErrors &&

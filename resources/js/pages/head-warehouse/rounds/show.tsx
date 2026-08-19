@@ -1,6 +1,8 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, CheckCircle2, Download, LogOut } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { RoundNoteHistory } from '@/components/round-note-history';
+import type { RoundNote } from '@/components/round-note-history';
 import { useOnlineStatus } from '@/lib/use-online-status';
 
 type RoundPhoto = {
@@ -31,6 +33,9 @@ type RoundItem = {
     qty_remaining: number;
     photo_count: number;
     photos: RoundPhoto[];
+    selected_user: string | null;
+    head_status: string;
+    user_status: string;
 };
 
 type Round = {
@@ -60,6 +65,7 @@ type Round = {
     partial_reasons: string[];
     can_sign: boolean;
     can_reject: boolean;
+    notes_history: RoundNote[];
 };
 
 type Props = {
@@ -70,8 +76,9 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
     const online = useOnlineStatus();
     const { data, setData, post, processing, errors } = useForm<{
         notes: string;
+        item_ids: number[];
         round?: string;
-    }>({ notes: '' });
+    }>({ notes: '', item_ids: [] });
     const showRemainingQty =
         round.completion_result === 'PARTIAL' ||
         round.partial_reasons.length > 0;
@@ -83,6 +90,15 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
     function reject(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         post(`/head-warehouse/rounds/${round.id}/reject`);
+    }
+
+    function toggleRejectedItem(id: number) {
+        setData(
+            'item_ids',
+            data.item_ids.includes(id)
+                ? data.item_ids.filter((itemId) => itemId !== id)
+                : [...data.item_ids, id],
+        );
     }
 
     return (
@@ -230,6 +246,7 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-100 text-slate-700">
                                 <tr>
+                                    <th className="px-4 py-3">Tolak</th>
                                     <th className="px-4 py-3">Kode</th>
                                     <th className="px-4 py-3">Item</th>
                                     <th className="px-4 py-3">No. Pesanan</th>
@@ -250,10 +267,30 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
                                         className="border-t border-slate-200"
                                     >
                                         <td className="px-4 py-3">
+                                            {item.head_status === 'PENDING' && (
+                                                <input
+                                                    type="checkbox"
+                                                    checked={data.item_ids.includes(
+                                                        item.id,
+                                                    )}
+                                                    onChange={() =>
+                                                        toggleRejectedItem(
+                                                            item.id,
+                                                        )
+                                                    }
+                                                    aria-label={`Tolak ${item.item_name}`}
+                                                />
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3">
                                             {item.item_code ?? '-'}
                                         </td>
                                         <td className="px-4 py-3">
                                             {item.item_name}
+                                            <div className="text-xs text-slate-500">
+                                                User:{' '}
+                                                {item.selected_user ?? '-'}
+                                            </div>
                                         </td>
                                         <td className="px-4 py-3">
                                             {item.po_number ?? '-'}
@@ -325,6 +362,11 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
                                     {errors.notes}
                                 </p>
                             )}
+                            {errors.item_ids && (
+                                <p className="text-sm text-red-600">
+                                    {errors.item_ids}
+                                </p>
+                            )}
                             <div className="flex flex-wrap gap-3">
                                 <button
                                     type="button"
@@ -337,7 +379,11 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={processing || !online}
+                                    disabled={
+                                        processing ||
+                                        !online ||
+                                        data.item_ids.length === 0
+                                    }
                                     className="rounded-md border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-70"
                                 >
                                     Reject ke Warehouse
@@ -350,6 +396,7 @@ export default function HeadWarehouseRoundShow({ round }: Props) {
                             Warehouse.
                         </p>
                     )}
+                    <RoundNoteHistory notes={round.notes_history} />
                 </section>
             </main>
         </>

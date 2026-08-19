@@ -13,6 +13,7 @@ use App\Services\AuditLogService;
 use App\Services\R2StorageService;
 use App\Support\DateFormatter;
 use App\Support\RoundItemQuantity;
+use App\Support\RoundNoteHistory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -86,6 +87,7 @@ final class MonitoringController extends Controller
             'creator',
             'pdfExport',
             'rounds.items.photos',
+            'rounds.items.selectedUser',
             'rounds.attachments',
             'rounds.creator',
             'rounds.selectedUser',
@@ -194,6 +196,7 @@ final class MonitoringController extends Controller
             'completion_result' => $round->completion_result,
             'specification_matches_po' => $round->specification_matches_po,
             'notes' => $round->notes,
+            'notes_history' => RoundNoteHistory::for($round),
             'delivery_note_number' => $round->delivery_note_number,
             'created_by' => $round->creator?->name,
             'selected_user' => $round->selectedUser?->name,
@@ -224,6 +227,7 @@ final class MonitoringController extends Controller
             'quality_status' => $item->quality_status->label(),
             'quantity_status' => $item->quantity_status->label(),
             'photo_count' => $item->photos->count(),
+            'selected_user' => $item->selectedUser?->name,
         ];
     }
 
